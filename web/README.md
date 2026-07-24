@@ -10,7 +10,7 @@ Intended production host: `mtggen.igottic.com` — this repo is set up for **loc
 - React Router
 - Scryfall API (card data/images)
 - EDHREC public JSON pages (average decks)
-- Configurable Amazon affiliate queries in `src/data/amazon.json`
+- Live Amazon affiliate search URLs built in `src/lib/amazon.ts` (no ASIN database)
 
 ## Run locally (Windows / macOS / Linux)
 
@@ -46,7 +46,7 @@ npm run preview  # serve the production build locally
 
 ## Configuring shop links
 
-Edit `web/src/data/amazon.json` — affiliate tag, supply queries, sleeve hue queries, proxy supplies, and beginner precon searches. All Amazon URLs are built with tag `igottic-20` by default.
+Amazon links are generated at runtime in `src/lib/amazon.ts` from your tool options (brand, color, budget filters, etc.) using affiliate tag `igottic-20`.
 
 ## Notes
 

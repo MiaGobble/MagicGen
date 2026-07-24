@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useState } from "react";
+import { ToastProvider } from "./Toast";
 
 const LINKS = [
   { to: "/commander", label: "Commander" },
@@ -17,13 +18,11 @@ export function Layout() {
   const [open, setOpen] = useState(false);
 
   return (
-    <>
+    <ToastProvider>
       <header className="site-header">
         <div className="container site-header__inner">
           <NavLink to="/" className="brand" onClick={() => setOpen(false)}>
-            <span className="brand__mark" aria-hidden>
-              ★
-            </span>
+            <img className="brand__logo" src="/logo.png" alt="" width={40} height={40} />
             MagicGen
           </NavLink>
           <button
@@ -46,6 +45,15 @@ export function Layout() {
                 {l.label}
               </NavLink>
             ))}
+            <a
+              className="nav-kofi"
+              href="https://ko-fi.com/igottic"
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => setOpen(false)}
+            >
+              Support on Ko-fi
+            </a>
           </nav>
         </div>
       </header>
@@ -58,7 +66,7 @@ export function Layout() {
         <div className="container">
           <div className="site-footer__grid">
             <div>
-              <h3>MagicGen</h3>
+              <h3 className="brand-wordmark">MagicGen</h3>
               <p className="muted">
                 A workshop of Magic: The Gathering tools and generators by Mia Gobble.
               </p>
@@ -68,16 +76,19 @@ export function Layout() {
                   Scryfall
                 </a>
                 . Magic: The Gathering is a trademark of Wizards of the Coast. This site is
-                unofficial Fan Content permitted under the Fan Content Policy — not affiliated
-                with Wizards.
+                unofficial Fan Content permitted under the Fan Content Policy (not affiliated
+                with Wizards).
               </p>
             </div>
             <div>
               <h3>Support</h3>
+              <p className="muted" style={{ marginTop: 0 }}>
+                Enjoying the tools? A tip keeps MagicGen growing.
+              </p>
               <ul>
                 <li>
                   <a href="https://ko-fi.com/igottic" target="_blank" rel="noreferrer">
-                    Ko-fi — buy me a coffee
+                    Support on Ko-fi
                   </a>
                 </li>
                 <li>
@@ -124,6 +135,6 @@ export function Layout() {
           </div>
         </div>
       </footer>
-    </>
+    </ToastProvider>
   );
 }

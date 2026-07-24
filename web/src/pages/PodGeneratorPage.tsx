@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { CommanderFilters, DEFAULT_FILTERS, type FilterState } from "../components/CommanderFilters";
 import { ColorIdentity } from "../components/Mana";
+import { useToast } from "../components/Toast";
 import { getCardImage } from "../lib/scryfall";
 import { generatePod, type PodSeat } from "../lib/pod";
 
 export function PodGeneratorPage() {
+  const { toast } = useToast();
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [players, setPlayers] = useState(4);
   const [bracket, setBracket] = useState(3);
@@ -37,9 +39,11 @@ export function PodGeneratorPage() {
         seeded: seeds.slice(0, players),
       });
       setPod(seats);
+      toast(`Pod ready (${seats.length} seats)`, "success");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed";
       setError(msg.includes("no pods") ? "no pods within filters found" : msg);
+      toast("Pod generation failed", "error");
     } finally {
       setLoading(false);
     }
@@ -50,10 +54,52 @@ export function PodGeneratorPage() {
       <header className="tool-header">
         <h1>Commander pod generator</h1>
         <p>
-          Build a table of commanders that counter and complement each other — fun pods where nothing
+          Build a table of commanders that counter and complement each other: fun pods where nothing
           feels like the only threat.
         </p>
       </header>
+
+      <details className="panel methodology">
+        <summary>How it works</summary>
+        <div className="methodology__body">
+          <p>
+            The pod builder fills each seat with a commander, then nudges the table toward variety so
+            identities don’t pile up on the same colors.
+          </p>
+          <ul>
+            <li>
+              <strong>Seeds first.</strong> Optional seat names lock those commanders in; empty seats
+              draw random legendary commanders from Scryfall using your color, playstyle, set, and
+              partner filters.
+            </li>
+            <li>
+              <strong>Filters.</strong> Color identity, playstyle keywords, set code, and partner
+              options feed the same Scryfall query used by the random commander tool (
+              <code>include</code> color mode).
+            </li>
+            <li>
+              <strong>Partners.</strong> If partners are enabled and a commander’s text/type suggests
+              Partner, Friends Forever, or Background, a second random partner is pulled (retrying
+              once if color overlap is heavy).
+            </li>
+            <li>
+              <strong>Balance pass.</strong> After the first draft, non-seeded seats may be
+              re-rolled (up to 8 tries each) when the table fails balance checks: avoid every seat
+              sharing one identity, avoid identical 3+ color identities, and avoid one color
+              appearing on nearly every deck.
+            </li>
+            <li>
+              <strong>Roles &amp; bracket.</strong> Seat labels (Aggro pressure, Interaction /
+              control, etc.) rotate for flavor. Bracket is passed through for deck links but is not a
+              hard power filter in matching.
+            </li>
+            <li>
+              <strong>Randomness.</strong> Unseeded picks use Scryfall’s random endpoint, so
+              regenerating with the same filters yields different pods.
+            </li>
+          </ul>
+        </div>
+      </details>
 
       <div className="field-grid" style={{ marginBottom: "1rem" }}>
         <div className="field">

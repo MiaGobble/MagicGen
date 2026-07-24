@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
 import { parseMoxfieldList } from "../lib/moxfield";
 import {
   formatUsd,
   optimizePurchase,
   priceDeck,
+  vendorCartUrlForSplit,
   vendorQuotes,
   type OptimizedSplit,
   type PricedCard,
@@ -12,6 +14,7 @@ import {
 } from "../lib/pricing";
 
 export function BulkPurchasePage() {
+  const { toast } = useToast();
   const [params] = useSearchParams();
   const initial = useMemo(() => {
     const raw = params.get("list");
@@ -41,8 +44,11 @@ export function BulkPurchasePage() {
       setPriced(rows);
       setQuotes(vendorQuotes(rows));
       setOptimized(optimizePurchase(rows));
+      toast(`Priced ${rows.length} unique line${rows.length === 1 ? "" : "s"}`, "success");
+      maybeShowKofiSupportToast(toast);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Pricing failed");
+      toast("Pricing failed", "error");
     } finally {
       setLoading(false);
     }
@@ -50,13 +56,24 @@ export function BulkPurchasePage() {
 
   const scryfallTotal = priced?.reduce((s, p) => s + p.usd * p.quantity, 0) ?? 0;
 
+  async function openVendorCart(url: string, rows: PricedCard[]) {
+    const list = rows.map((p) => `${p.quantity} ${p.name}`).join("\n");
+    try {
+      await navigator.clipboard.writeText(list);
+      toast("List copied to clipboard", "success");
+    } catch {
+      toast("Opened vendor (clipboard copy failed)", "info");
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
   return (
     <div className="tool-page container">
       <header className="tool-header">
         <h1>Bulk purchasing</h1>
         <p>
-          Paste a Moxfield list, compare vendor totals (Scryfall USD + estimated shipping), and see an
-          optimized split across services.
+          Paste a Moxfield list, compare vendor totals (Scryfall USD + estimated shipping), and open
+          mass-entry / builder pages with your list preloaded.
         </p>
       </header>
 
@@ -96,25 +113,23 @@ export function BulkPurchasePage() {
             </p>
             <div className="price-buttons">
               {quotes.map((q) => (
-                <a
+                <button
                   key={q.id}
+                  type="button"
                   className="price-btn"
-                  href={q.cartUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ textDecoration: "none" }}
+                  onClick={() => openVendorCart(q.cartUrl, priced)}
                 >
                   <span>{q.name}</span>
                   <strong>{formatUsd(q.grandTotal)}</strong>
                   <span className="muted">
-                    {formatUsd(q.total)} + {formatUsd(q.shipping)} ship
+                    {formatUsd(q.total)} + {formatUsd(q.shipping)} ship · list preloaded
                   </span>
-                </a>
+                </button>
               ))}
             </div>
             <p className="muted" style={{ marginTop: "0.75rem" }}>
-              Vendor buttons open that service so you can paste / build a cart. Exact live cart APIs
-              vary; totals use Scryfall USD as a shared baseline with modeled shipping.
+              TCGPlayer opens Mass Entry with your cards. Card Kingdom opens the deck builder with the
+              list in the URL. Your list is also copied to the clipboard as a backup.
             </p>
           </section>
 
@@ -126,13 +141,30 @@ export function BulkPurchasePage() {
                 shipping per vendor used)
               </p>
               <div className="field-grid">
-                {Object.entries(optimized.vendorTotals).map(([id, v]) => (
-                  <div key={id} className="panel">
-                    <strong>{id}</strong>
-                    <div>{v.cards} cards</div>
-                    <div>{formatUsd(v.total)}</div>
-                  </div>
-                ))}
+                {Object.entries(optimized.vendorTotals).map(([id, v]) => {
+                  const subset = optimized.assignments
+                    .filter((a) => a.vendor === id)
+                    .map((a) => ({
+                      name: a.name,
+                      quantity: a.quantity,
+                      usd: a.unit,
+                    }));
+                  return (
+                    <div key={id} className="panel">
+                      <strong>{id}</strong>
+                      <div>{v.cards} cards</div>
+                      <div>{formatUsd(v.total)}</div>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ marginTop: "0.5rem" }}
+                        onClick={() => openVendorCart(vendorCartUrlForSplit(id, subset), subset)}
+                      >
+                        Open {id} with these cards
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
               <details style={{ marginTop: "0.75rem" }}>
                 <summary>Line assignments</summary>

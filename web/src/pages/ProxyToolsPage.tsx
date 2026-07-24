@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
 import { proxySupplyLinks } from "../lib/amazon";
 import { parseMoxfieldList } from "../lib/moxfield";
 import { generateProxyPdf, type ProxyPdfOptions } from "../lib/proxyPdf";
-import { collectionLookup, getCardImage, namedCard, searchCards, type ScryfallCard } from "../lib/scryfall";
+import { collectionLookupDetailed, getCardImage, namedCard, namedExact, searchCards, type ScryfallCard } from "../lib/scryfall";
 
 type ProxyEntry = { card: ScryfallCard; quantity: number };
 
-const SITE = "https://mtggen.igottic.com";
+const SITE = "mtggen.igottic.com";
 const STAMP = `Unofficial Print · ${SITE}`;
 
 export function ProxyToolsPage() {
+  const { toast } = useToast();
   const [params] = useSearchParams();
   const initialList = useMemo(() => {
     const raw = params.get("list");
@@ -51,15 +53,64 @@ export function ProxyToolsPage() {
     setError(null);
     try {
       const lines = parseMoxfieldList(text);
-      const cards = await collectionLookup(lines.map((l) => ({ name: l.name.split(" // ")[0] })));
-      const byName = new Map(cards.map((c) => [c.name.toLowerCase(), c]));
+      if (!lines.length) throw new Error("No cards found in the list");
+
+      const idents = lines.map((l) => ({ name: l.name.split(" // ")[0] }));
+      const { cards, notFound } = await collectionLookupDetailed(idents);
+      const byName = new Map<string, ScryfallCard>();
+      for (const c of cards) {
+        byName.set(c.name.toLowerCase(), c);
+        byName.set(c.name.split(" // ")[0].toLowerCase(), c);
+      }
+
+      const missingReasons: string[] = [];
+
+      // Retry not-found names via exact then fuzzy named lookup
+      for (const miss of notFound) {
+        const name = "name" in miss ? miss.name : undefined;
+        if (!name) {
+          missingReasons.push(`Unknown identifier could not be resolved`);
+          continue;
+        }
+        try {
+          const card = await namedExact(name);
+          byName.set(name.toLowerCase(), card);
+          byName.set(card.name.toLowerCase(), card);
+        } catch {
+          try {
+            const card = await namedCard(name);
+            byName.set(name.toLowerCase(), card);
+            byName.set(card.name.toLowerCase(), card);
+          } catch {
+            missingReasons.push(
+              `${name}: not found on Scryfall (check spelling / printing name)`,
+            );
+          }
+        }
+      }
+
       const next: ProxyEntry[] = [];
       for (const line of lines) {
-        const card =
-          byName.get(line.name.toLowerCase()) ||
-          byName.get(line.name.split(" // ")[0].toLowerCase());
-        if (card) next.push({ card, quantity: line.quantity });
+        const key = line.name.toLowerCase();
+        const face = line.name.split(" // ")[0].toLowerCase();
+        const card = byName.get(key) || byName.get(face);
+        if (card) {
+          next.push({ card, quantity: line.quantity });
+        } else if (!missingReasons.some((r) => r.startsWith(line.name.split(" // ")[0]))) {
+          missingReasons.push(
+            `${line.name}: could not resolve a Scryfall card for this line`,
+          );
+        }
       }
+
+      if (missingReasons.length) {
+        setEntries(next);
+        setError(
+          `Could not include every card in the queue:\n• ${missingReasons.join("\n• ")}`,
+        );
+        return;
+      }
+
       setEntries(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Import failed");
@@ -121,7 +172,7 @@ export function ProxyToolsPage() {
     setPdfLoading(true);
     setError(null);
     try {
-      await generateProxyPdf(sheets, {
+      const result = await generateProxyPdf(sheets, {
         bleedMm,
         cutGuides,
         gapMm,
@@ -130,8 +181,22 @@ export function ProxyToolsPage() {
         rows,
         stamp: STAMP,
       });
+      if (!result.ok) {
+        const unique = new Map<string, string>();
+        for (const f of result.failures) unique.set(f.name, f.reason);
+        setError(
+          `PDF not generated. These cards could not be rendered:\n• ${[...unique.entries()]
+            .map(([name, reason]) => `${name}: ${reason}`)
+            .join("\n• ")}`,
+        );
+        toast("PDF generation failed", "error");
+      } else {
+        toast("Proxy PDF ready", "success");
+        maybeShowKofiSupportToast(toast);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "PDF generation failed");
+      toast("PDF generation failed", "error");
     } finally {
       setPdfLoading(false);
     }
@@ -150,7 +215,7 @@ export function ProxyToolsPage() {
       <section className="panel no-print">
         <h2 style={{ marginTop: 0, fontSize: "1.15rem" }}>Proxy etiquette</h2>
         <p>
-          Proxies come with community guidelines — read{" "}
+          Proxies come with community guidelines. Read{" "}
           <a
             href="https://www.letsproxy.com/mtg-proxy-cards-the-complete-guide-to-making-using-and-printing-them/"
             target="_blank"
@@ -217,7 +282,11 @@ export function ProxyToolsPage() {
               </button>
             )}
           </div>
-          {error && <p className="error">{error}</p>}
+          {error && (
+            <p className="error" style={{ whiteSpace: "pre-wrap" }}>
+              {error}
+            </p>
+          )}
         </div>
       </div>
 
@@ -310,7 +379,7 @@ export function ProxyToolsPage() {
 
       <details className="panel no-print" style={{ marginTop: "1rem" }}>
         <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-          Queue ({sheets.length} cards) — text list
+          Queue ({sheets.length} cards): text list
         </summary>
         <ul>
           {entries.map((e) => (
@@ -340,10 +409,13 @@ export function ProxyToolsPage() {
               className={`proxy-card${cutGuides ? " proxy-card--guides" : ""}`}
               key={`${card.id}-${i}`}
               style={{
-                padding: bleedMm > 0 ? `${bleedMm}mm` : undefined,
+                width: `calc(63mm + ${bleedMm * 2}mm)`,
+                height: `calc(88mm + ${bleedMm * 2}mm)`,
+                ["--proxy-bleed" as string]: `${bleedMm}mm`,
               }}
             >
               <img src={getCardImage(card, "large")} alt={card.name} />
+              <div className="proxy-card__trim" aria-hidden={bleedMm <= 0} />
               <div className="proxy-card__stamp">{STAMP}</div>
             </div>
           ))}

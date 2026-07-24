@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { CommanderFilters, DEFAULT_FILTERS, type FilterState } from "../components/CommanderFilters";
 import { DeckActions } from "../components/DeckActions";
 import { ColorIdentity, ManaCost } from "../components/Mana";
+import { useToast } from "../components/Toast";
 import { generateAverageDeck, edhrecUrl } from "../lib/edhrec";
 import {
   CARD_BACK_URL,
@@ -15,6 +16,7 @@ import {
 } from "../lib/scryfall";
 
 export function RandomCommanderPage() {
+  const { toast } = useToast();
   const [params] = useSearchParams();
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [card, setCard] = useState<ScryfallCard | null>(null);
@@ -96,8 +98,10 @@ export function RandomCommanderPage() {
       const result = await generateAverageDeck(card, bracket);
       setDeck(result.list);
       setDeckSource(result.source);
+      toast("Average deck ready", "success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Deck generation failed");
+      toast("Deck generation failed", "error");
     } finally {
       setDeckLoading(false);
     }
@@ -107,7 +111,7 @@ export function RandomCommanderPage() {
     <div className="tool-page container">
       <header className="tool-header">
         <h1>Random commander</h1>
-        <p>Keep flipping until something sparks a deck idea — then pull an average list from EDHREC.</p>
+        <p>Keep flipping until something sparks a deck idea, then pull an average list from EDHREC.</p>
       </header>
 
       <CommanderFilters value={filters} onChange={setFilters} />
@@ -192,6 +196,20 @@ export function RandomCommanderPage() {
             are skipped (no public API).
           </p>
           <pre className="list-block">{deck}</pre>
+          <div className="actions">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                void navigator.clipboard.writeText(deck).then(
+                  () => toast("Copied deck list", "success"),
+                  () => toast("Could not copy", "error"),
+                );
+              }}
+            >
+              Copy list
+            </button>
+          </div>
           <DeckActions list={deck} />
           <div className="actions">
             <Link className="btn btn-ghost" to={`/pimp?list=${encodeURIComponent(deck)}`}>

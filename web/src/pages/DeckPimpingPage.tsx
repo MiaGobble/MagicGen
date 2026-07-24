@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DeckActions } from "../components/DeckActions";
+import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
 import { pimpDeckList } from "../lib/pimp";
 import { getCardImage, type ScryfallCard } from "../lib/scryfall";
 
@@ -11,6 +12,7 @@ function artCrop(card: ScryfallCard) {
 }
 
 export function DeckPimpingPage() {
+  const { toast } = useToast();
   const [params] = useSearchParams();
   const initial = useMemo(() => {
     try {
@@ -25,24 +27,43 @@ export function DeckPimpingPage() {
   const [cards, setCards] = useState<ScryfallCard[]>([]);
   const [notes, setNotes] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function onPimp() {
     setLoading(true);
     setError(null);
+    setProgress({ done: 0, total: 0 });
     try {
-      const result = await pimpDeckList(input);
+      const result = await pimpDeckList(input, (done, total) => {
+        setProgress({ done, total });
+      });
       setOutput(result.list);
       setCards(result.cards);
       setNotes(result.notes);
+      toast(`Pimped ${result.cards.length} card${result.cards.length === 1 ? "" : "s"}`, "success");
+      maybeShowKofiSupportToast(toast);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Pimping failed");
+      toast("Pimping failed", "error");
     } finally {
       setLoading(false);
+      setProgress(null);
+    }
+  }
+
+  async function onCopy() {
+    try {
+      await navigator.clipboard.writeText(output);
+      toast("Copied pimped list", "success");
+    } catch {
+      toast("Could not copy", "error");
     }
   }
 
   const hero = cards[0];
+  const pct =
+    progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
     <div className="tool-page container">
@@ -50,6 +71,36 @@ export function DeckPimpingPage() {
         <h1>Deck pimping</h1>
         <p>Paste a Moxfield-style list and swap each card to a cooler, more desirable printing.</p>
       </header>
+
+      <details className="panel methodology">
+        <summary>How printing picks work</summary>
+        <div className="methodology__body">
+          <p>
+            Each line is resolved on Scryfall, all paper printings are loaded, then scored. The
+            highest-scoring printing wins and is written back with set code + collector number.
+          </p>
+          <ul>
+            <li>
+              <strong>Lookup.</strong> Each name is resolved via Scryfall’s named endpoint, then all
+              paper printings are loaded from that card’s prints URI (digital / art-series filtered
+              out in code). Special-treatment preference is applied only when scoring picks a winner.
+            </li>
+            <li>
+              <strong>Scoring.</strong> Secret Lair and premium treatments score highest; showcase /
+              borderless / extended / full-art / etched add large bonuses. Plain core-set black-border
+              defaults are heavily penalized. Price is only a weak tiebreaker.
+            </li>
+            <li>
+              <strong>Lands.</strong> Expensive “plain looking” promo basics lose to full-art,
+              borderless, or Secret Lair lands so the list looks pimped, not just pricey.
+            </li>
+            <li>
+              <strong>Failures.</strong> If Scryfall truly has no paper printing for a name, the
+              original line is kept and noted in the change log.
+            </li>
+          </ul>
+        </div>
+      </details>
 
       <div className="split">
         <div className="field">
@@ -72,15 +123,34 @@ export function DeckPimpingPage() {
           {loading ? "Pimping… (Scryfall lookups)" : "Pimp my deck"}
         </button>
         {output && (
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => navigator.clipboard.writeText(output)}
-          >
+          <button type="button" className="btn btn-secondary" onClick={() => void onCopy()}>
             Copy output
           </button>
         )}
       </div>
+
+      {loading && progress && (
+        <div
+          className="progress-block"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={progress.total || 100}
+          aria-valuenow={progress.done}
+          aria-label="Pimping progress"
+        >
+          <div className="progress-block__meta">
+            <span>
+              {progress.total > 0
+                ? `${progress.done} / ${progress.total} cards`
+                : "Starting…"}
+            </span>
+            <span>{pct}%</span>
+          </div>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+      )}
 
       {error && <p className="error">{error}</p>}
 

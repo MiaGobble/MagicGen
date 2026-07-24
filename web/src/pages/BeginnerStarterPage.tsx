@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   beginnerPreconUrl,
-  beginnerSupplyLinks,
+  beginnerSupplyTypes,
   pickBeginnerPrecon,
   type BeginnerPrecon,
   type PlaystyleId,
@@ -24,22 +24,19 @@ export function BeginnerStarterPage() {
   const [step, setStep] = useState<Step>("Learn");
   const [knowsRules, setKnowsRules] = useState<boolean | null>(null);
   const [style, setStyle] = useState<PlaystyleId>("aggro");
-  const [preferBudget, setPreferBudget] = useState(true);
-  const [precon, setPrecon] = useState<BeginnerPrecon>(() =>
-    pickBeginnerPrecon("aggro", { preferBudget: true }),
-  );
+  const [precon, setPrecon] = useState<BeginnerPrecon>(() => pickBeginnerPrecon("aggro"));
 
   useEffect(() => {
-    setPrecon(pickBeginnerPrecon(style, { preferBudget }));
-  }, [style, preferBudget]);
+    setPrecon(pickBeginnerPrecon(style));
+  }, [style]);
 
   function regenerate() {
-    setPrecon(pickBeginnerPrecon(style, { preferBudget, avoidName: precon.name }));
+    setPrecon(pickBeginnerPrecon(style, { avoidName: precon.name }));
   }
 
   const stepIndex = STEPS.indexOf(step);
-  const deckUrl = beginnerPreconUrl(precon, preferBudget);
-  const supplyLinks = beginnerSupplyLinks();
+  const deckUrl = beginnerPreconUrl(precon);
+  const supplyTypes = beginnerSupplyTypes();
 
   return (
     <div className="tool-page container">
@@ -69,7 +66,7 @@ export function BeginnerStarterPage() {
                   setStep("Find");
                 }}
               >
-                Yes — skip ahead
+                Yes, skip ahead
               </button>
               <button
                 type="button"
@@ -95,7 +92,7 @@ export function BeginnerStarterPage() {
                   </li>
                 </ul>
                 <button type="button" className="btn btn-brass" onClick={() => setStep("Find")}>
-                  I’ve got the basics — continue
+                  I’ve got the basics. Continue
                 </button>
               </div>
             )}
@@ -105,15 +102,9 @@ export function BeginnerStarterPage() {
         {step === "Find" && (
           <>
             <h2 style={{ marginTop: 0 }}>What sounds fun?</h2>
-            <p className="muted">Pick a broad playstyle — no rules jargon required.</p>
-            <label className="check" style={{ marginBottom: "0.75rem" }}>
-              <input
-                type="checkbox"
-                checked={preferBudget}
-                onChange={(e) => setPreferBudget(e.target.checked)}
-              />
-              Prefer budget options ($40–$60)
-            </label>
+            <p className="muted">
+              Pick a broad playstyle. Suggestions favor newer, widely stocked Commander decks.
+            </p>
             <div className="check-row" style={{ flexDirection: "column", alignItems: "stretch" }}>
               {PLAYSTYLES.map((p) => (
                 <label key={p.id} className="check" style={{ padding: "0.35rem 0" }}>
@@ -124,14 +115,17 @@ export function BeginnerStarterPage() {
                     onChange={() => setStyle(p.id)}
                   />
                   <span>
-                    <strong>{p.label}</strong> — {p.blurb}
+                    <strong>{p.label}</strong>: {p.blurb}
                   </span>
                 </label>
               ))}
             </div>
             <div className="panel" style={{ marginTop: "1rem" }}>
               <h3 style={{ marginTop: 0 }}>{precon.name}</h3>
-              <p className="muted">Commander: {precon.commander}</p>
+              <p className="muted">
+                Commander: {precon.commander}
+                {precon.year ? ` · ${precon.year}` : ""}
+              </p>
               <p>{precon.description}</p>
               <div className="actions">
                 <button type="button" className="btn btn-ghost" onClick={regenerate}>
@@ -152,8 +146,7 @@ export function BeginnerStarterPage() {
           <>
             <h2 style={{ marginTop: 0 }}>Get your gear</h2>
             <p>
-              Grab <strong>{precon.name}</strong>, then kit out with starter supplies: a deck box, D6
-              dice, spindown D20s, and sleeves.
+              Grab <strong>{precon.name}</strong>, then kit out with these starter supplies.
             </p>
             <div className="actions">
               <a className="btn btn-brass" href={deckUrl} target="_blank" rel="noreferrer">
@@ -163,13 +156,12 @@ export function BeginnerStarterPage() {
                 Generate MTG supplies
               </Link>
             </div>
+            <p className="muted" style={{ marginBottom: "0.35rem" }}>
+              Recommended gear types:
+            </p>
             <ul>
-              {supplyLinks.map((item) => (
-                <li key={item.name}>
-                  <a href={item.url} target="_blank" rel="noreferrer">
-                    {item.name}
-                  </a>
-                </li>
+              {supplyTypes.map((type) => (
+                <li key={type}>{type}</li>
               ))}
             </ul>
             <button type="button" className="btn btn-primary" onClick={() => setStep("Play")}>
@@ -197,8 +189,16 @@ export function BeginnerStarterPage() {
                     on Steam.
                   </li>
                   <li>
-                    Subscribe to popular MTG / Commander workshop tables and card imports (search
-                    “MTG” / “EDH” in the Workshop).
+                    Subscribe to{" "}
+                    <a
+                      href="https://steamcommunity.com/sharedfiles/filedetails/?id=2296042369"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      MTG 4 player table – scripted
+                    </a>{" "}
+                    (by Oops I Baked a Pie): the popular 4-player EDH workshop table with deck import
+                    and scripted play helpers.
                   </li>
                   <li>
                     Find games via{" "}
@@ -219,7 +219,7 @@ export function BeginnerStarterPage() {
                     </a>
                     .
                   </li>
-                  <li>Ask about Commander / EDH nights — most stores run weekly casual pods.</li>
+                  <li>Ask about Commander / EDH nights. Most stores run weekly casual pods.</li>
                   <li>Bring your precon, sleeves, and a smile. Tell the table you’re new.</li>
                 </ol>
               </div>

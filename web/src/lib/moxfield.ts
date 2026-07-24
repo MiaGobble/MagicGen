@@ -25,21 +25,27 @@ export function parseMoxfieldList(text: string): DeckLine[] {
     // 1 Sol Ring (c21) 252
     // 1 Sol Ring
     // 1x Sol Ring
+    // 1 Sol Ring (c21) 252 *F* #Ramp
     const match = line.match(
-      /^(\d+)\s*x?\s+(.+?)(?:\s+\(([a-z0-9]+)\)\s*([a-z0-9★★★★★]+)?(?:\s+\*F\*)?)?\s*$/i,
+      /^(\d+)\s*x?\s+(.+?)(?:\s+\(([a-z0-9]+)\)\s*([a-z0-9★☆✦]+)?)?(?:\s+\*F\*)?(?:\s+#\S+)*\s*$/i,
     );
     if (!match) continue;
 
     const quantity = Number(match[1]);
     let name = match[2].trim();
-    // Strip trailing foil markers from name if present
-    name = name.replace(/\s+\*F\*$/i, "").trim();
+    // Strip foil markers, #tags, and [SET] brackets that leaked into the name
+    name = name.replace(/(?:\s+\*F\*)+$/i, "");
+    name = name.replace(/\s+#\S+/g, "");
+    name = name.replace(/\s+\[[^\]]*\]/g, "");
+    name = name.trim();
+    if (!name) continue;
 
     result.push({
       quantity,
       name,
       setCode: match[3]?.toLowerCase(),
       collectorNumber: match[4],
+      isFoil: /\*F\*/i.test(line) || undefined,
       category,
     });
   }

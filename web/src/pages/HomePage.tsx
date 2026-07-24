@@ -54,17 +54,20 @@ export function HomePage() {
       <section className="home-hero" aria-label="MagicGen hero">
         <div className="home-hero__bg" aria-hidden />
         <div className="container home-hero__content">
+          <p className="home-hero__mark">
+            <img src="/logo.png" alt="" width={56} height={56} />
+          </p>
           <h1 className="home-hero__brand">MagicGen</h1>
-          <p className="home-hero__headline">Tools for every corner of the table.</p>
+          <p className="home-hero__headline">Handy tools for anybody playing MTG</p>
           <p className="home-hero__support">
-            Generators, proxies, supplies, and starter guidance — powered by Scryfall, built for
-            local playtesting and real-world shopping.
+            Generators, proxies, supplies, and more to get you playing Magic The Gathering the way
+            you want.
           </p>
           <div className="home-hero__cta">
             <Link className="btn btn-brass" to="/commander">
               Start with a commander
             </Link>
-            <Link className="btn btn-secondary" to="/beginner" style={{ borderColor: "rgba(247,243,234,0.35)", color: "#f7f3ea" }}>
+            <Link className="btn btn-secondary home-hero__ghost" to="/beginner">
               New to Magic?
             </Link>
           </div>
@@ -75,7 +78,7 @@ export function HomePage() {
         <div className="container">
           <h2>The workshop</h2>
           <p className="lede">
-            One destination for the tools you reach for between games — from random commanders to
+            One destination for the tools you reach for between games, from random commanders to
             sleeve shopping.
           </p>
           <div className="tool-links">
@@ -99,13 +102,30 @@ export function HomePage() {
           </div>
 
           <div className="support-band">
-            <div>
-              <h2>Keep the generators humming</h2>
-              <p>MagicGen is free and local-friendly. Tips on Ko-fi help fund new tools.</p>
+            <div className="support-band__copy">
+              <h2>Support MagicGen on Ko-fi</h2>
+              <p>
+                MagicGen is free and local-friendly. Tips on Ko-fi help fund hosting and new tools.
+                Tip directly below without leaving the site.
+              </p>
+              <a
+                className="btn btn-secondary home-hero__ghost"
+                href="https://ko-fi.com/igottic"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open Ko-fi page
+              </a>
             </div>
-            <a className="btn btn-brass" href="https://ko-fi.com/igottic" target="_blank" rel="noreferrer">
-              Support on Ko-fi
-            </a>
+            <div className="kofi-embed">
+              <iframe
+                id="kofiframe"
+                src="https://ko-fi.com/igottic/?hidefeed=true&widget=true&embed=true"
+                title="Support MagicGen on Ko-fi"
+                loading="lazy"
+                allow="payment"
+              />
+            </div>
           </div>
         </div>
       </section>

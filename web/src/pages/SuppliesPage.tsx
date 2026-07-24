@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { buildSupplyQueries, SUPPLY_LABELS, type SupplyKey } from "../lib/amazon";
+import { useToast } from "../components/Toast";
 
 const ITEMS = (Object.keys(SUPPLY_LABELS) as Exclude<SupplyKey, "comboSets">[]).map((key) => ({
   key,
@@ -7,6 +8,7 @@ const ITEMS = (Object.keys(SUPPLY_LABELS) as Exclude<SupplyKey, "comboSets">[]).
 }));
 
 export function SuppliesPage() {
+  const { toast } = useToast();
   const [selected, setSelected] = useState<SupplyKey[]>([
     "d20",
     "d6",
@@ -25,16 +27,16 @@ export function SuppliesPage() {
   }
 
   function onGenerate() {
-    setResults(
-      buildSupplyQueries({
-        items: selected,
-        premium,
-        spindown,
-        deckBoxType,
-        playmatType,
-        allowCombo,
-      }),
-    );
+    const next = buildSupplyQueries({
+      items: selected,
+      premium,
+      spindown,
+      deckBoxType,
+      playmatType,
+      allowCombo,
+    });
+    setResults(next);
+    toast(`Ready: ${next.length} supply link${next.length === 1 ? "" : "s"}`, "success");
   }
 
   return (
@@ -42,8 +44,9 @@ export function SuppliesPage() {
       <header className="tool-header">
         <h1>MTG supplies</h1>
         <p>
-          Check what you need, tune preferences, then generate live Amazon searches — no stored
-          product catalog.
+          Check what you need, tune preferences, then open Amazon <strong>search</strong> results
+          matched to those choices (brand tier, box type, mat type, and more). Each link is a
+          search, not a single product page, so you pick the listing.
         </p>
       </header>
 
@@ -129,7 +132,7 @@ export function SuppliesPage() {
           <h2 style={{ marginTop: 0 }}>Your supplies list</h2>
           <ul className="tool-links" style={{ listStyle: "none", padding: 0 }}>
             {results.map((r) => (
-              <li key={`${r.label}-${r.query}`}>
+              <li key={`${r.label}-${r.id}`}>
                 <a className="tool-link" href={r.url} target="_blank" rel="noreferrer">
                   <span className="tool-link__index">↗</span>
                   <span>
@@ -141,8 +144,9 @@ export function SuppliesPage() {
             ))}
           </ul>
           <p className="disclosure">
-            Links are live Amazon searches with affiliate tag igottic-20 — queries are built from your
-            options each time you click Get supplies.
+            Every result opens an <strong>Amazon search</strong> for that supply type (affiliate tag
+            igottic-20), not a fixed product page. Compare listings and choose one that matches the
+            title intent; stock and sellers change often.
           </p>
         </section>
       )}
