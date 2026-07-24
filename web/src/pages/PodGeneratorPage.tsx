@@ -1,0 +1,151 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { CommanderFilters, DEFAULT_FILTERS, type FilterState } from "../components/CommanderFilters";
+import { ColorIdentity } from "../components/Mana";
+import { getCardImage } from "../lib/scryfall";
+import { generatePod, type PodSeat } from "../lib/pod";
+
+export function PodGeneratorPage() {
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [players, setPlayers] = useState(4);
+  const [bracket, setBracket] = useState(3);
+  const [seeds, setSeeds] = useState<string[]>(["", "", "", ""]);
+  const [pod, setPod] = useState<PodSeat[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  function updateSeed(index: number, value: string) {
+    setSeeds((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+  }
+
+  async function onGenerate() {
+    setLoading(true);
+    setError(null);
+    setPod(null);
+    try {
+      const seats = await generatePod({
+        players,
+        bracket,
+        colors: filters.colors,
+        playstyle: filters.playstyle || undefined,
+        set: filters.set || undefined,
+        partners: filters.partners,
+        seeded: seeds.slice(0, players),
+      });
+      setPod(seats);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed";
+      setError(msg.includes("no pods") ? "no pods within filters found" : msg);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="tool-page container">
+      <header className="tool-header">
+        <h1>Commander pod generator</h1>
+        <p>
+          Build a table of commanders that counter and complement each other — fun pods where nothing
+          feels like the only threat.
+        </p>
+      </header>
+
+      <div className="field-grid" style={{ marginBottom: "1rem" }}>
+        <div className="field">
+          <label htmlFor="players">Players</label>
+          <select id="players" value={players} onChange={(e) => setPlayers(Number(e.target.value))}>
+            {[2, 3, 4, 5, 6].map((n) => (
+              <option key={n} value={n}>
+                {n} players
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="podBracket">Bracket</label>
+          <select id="podBracket" value={bracket} onChange={(e) => setBracket(Number(e.target.value))}>
+            {[1, 2, 3, 4, 5].map((b) => (
+              <option key={b} value={b}>
+                Bracket {b}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <CommanderFilters value={filters} onChange={setFilters} />
+
+      <section className="panel" style={{ marginTop: "1rem" }}>
+        <h2 style={{ marginTop: 0, fontSize: "1.15rem" }}>Seed commanders (optional)</h2>
+        <p className="muted">Lock in one or more names; the rest auto-match around them.</p>
+        <div className="field-grid">
+          {Array.from({ length: players }, (_, i) => (
+            <div className="field" key={i}>
+              <label htmlFor={`seed-${i}`}>Seat {i + 1}</label>
+              <input
+                id={`seed-${i}`}
+                placeholder="Commander name"
+                value={seeds[i] ?? ""}
+                onChange={(e) => updateSeed(i, e.target.value)}
+              />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="actions">
+        <button type="button" className="btn btn-primary" onClick={onGenerate} disabled={loading}>
+          {loading ? "Matching…" : "Generate pod"}
+        </button>
+      </div>
+
+      {error && <p className="error">{error}</p>}
+
+      {pod && (
+        <div className="tool-links" style={{ marginTop: "1.5rem" }}>
+          {pod.map((seat, i) => (
+            <PodCard key={seat.commander.id} seat={seat} index={i} bracket={bracket} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PodCard({ seat, index, bracket }: { seat: PodSeat; index: number; bracket: number }) {
+  const c = seat.commander;
+  return (
+    <article className="panel panel-strong" style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "1rem" }}>
+      <img
+        src={getCardImage(c, "normal")}
+        alt={c.name}
+        style={{ borderRadius: 8, width: 100, height: "auto" }}
+      />
+      <div>
+        <p className="muted" style={{ margin: 0 }}>
+          Seat {index + 1} · {seat.role}
+        </p>
+        <h3 style={{ margin: "0.2rem 0" }}>{c.name}</h3>
+        <ColorIdentity colors={c.color_identity} />
+        {seat.partner && (
+          <p className="muted" style={{ marginTop: "0.5rem" }}>
+            Partner: {seat.partner.name}
+          </p>
+        )}
+        <div className="actions">
+          <Link
+            className="btn btn-secondary"
+            to={`/commander?name=${encodeURIComponent(c.name)}&bracket=${bracket}&autodeck=1`}
+          >
+            Generate average deck
+          </Link>
+        </div>
+      </div>
+    </article>
+  );
+}

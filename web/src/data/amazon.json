@@ -1,0 +1,396 @@
+{
+  "affiliateTag": "igottic-20",
+  "baseSearchUrl": "https://www.amazon.com/s",
+  "supplies": {
+    "d20": {
+      "label": "D20 dice",
+      "products": {
+        "premium": {
+          "asin": "B01MQXEN8I",
+          "label": "Ultra Pro Magic Spindown Life Counter"
+        },
+        "premiumSpindown": {
+          "asin": "B01MQXEN8I",
+          "label": "Ultra Pro Magic Spindown Life Counter"
+        },
+        "budget": {
+          "asin": "B00004TZY8",
+          "label": "Chessex Dice Block (includes D20)"
+        },
+        "budgetSpindown": {
+          "asin": "B00004TZY8",
+          "label": "Chessex Dice (D20 included)"
+        }
+      }
+    },
+    "d6": {
+      "label": "D6 dice",
+      "products": {
+        "premium": {
+          "asin": "B00004TZY8",
+          "label": "Chessex Opaque Dice Block"
+        },
+        "budget": {
+          "asin": "B00004TZY8",
+          "label": "Chessex Opaque Dice Block"
+        }
+      }
+    },
+    "sleeves": {
+      "label": "Sleeves",
+      "products": {
+        "premium": {
+          "asin": "B00WX57O7M",
+          "label": "Dragon Shield Matte Sleeves — Black (100)"
+        },
+        "budget": {
+          "asin": "B01G25NEW2",
+          "label": "Dragon Shield Matte Clear (100)"
+        }
+      }
+    },
+    "deckBoxes": {
+      "label": "Deck boxes",
+      "products": {
+        "premium": {
+          "asin": "B06XGSJS7N",
+          "label": "Ultimate Guard Boulder 100+ (Malachite)"
+        },
+        "premiumMagnetic": {
+          "asin": "B0C6SS8RSB",
+          "label": "Ultimate Guard Boulder Solid 100+"
+        },
+        "premiumPlastic": {
+          "asin": "B06XGSJS7N",
+          "label": "Ultimate Guard Boulder 100+"
+        },
+        "budget": {
+          "asin": "B06XGSJS7N",
+          "label": "Ultimate Guard Boulder 100+"
+        },
+        "budgetMagnetic": {
+          "asin": "B0C6SS8RSB",
+          "label": "Ultimate Guard Boulder Solid 100+"
+        },
+        "budgetPlastic": {
+          "asin": "B06XGSJS7N",
+          "label": "Ultimate Guard Boulder 100+"
+        }
+      }
+    },
+    "cardStorage": {
+      "label": "Card storage boxes",
+      "products": {
+        "premium": {
+          "asin": "B001EYU6QK",
+          "label": "BCW Card Storage Box 3200 Count"
+        },
+        "budget": {
+          "asin": "B001EYU6QK",
+          "label": "BCW Card Storage Box"
+        }
+      }
+    },
+    "coins": {
+      "label": "Coins / tokens",
+      "products": {
+        "premium": {
+          "asin": "B07GXZQJ8P",
+          "label": "Metal Coin Tokens for Card Games"
+        },
+        "budget": {
+          "asin": "B07GXZQJ8P",
+          "label": "Metal Coin Tokens for Card Games"
+        }
+      }
+    },
+    "whiteboardTokens": {
+      "label": "Whiteboard tokens",
+      "products": {
+        "premium": {
+          "asin": "B00006IF5W",
+          "label": "Fiskars Craft Accessories (pair with dry-erase tokens)"
+        },
+        "budget": {
+          "asin": "B00006IF5W",
+          "label": "Craft trimmer / token prep tools"
+        }
+      }
+    },
+    "playmats": {
+      "label": "Playmats",
+      "products": {
+        "premium": {
+          "asin": "B07D9QJ8YZ",
+          "label": "Ultra Pro MTG Playmat"
+        },
+        "premiumArt": {
+          "asin": "B07D9QJ8YZ",
+          "label": "Ultra Pro MTG Art Playmat"
+        },
+        "premiumBasic": {
+          "asin": "B06XGSJS7N",
+          "label": "Ultimate Guard accessories (mat pairing)"
+        },
+        "budget": {
+          "asin": "B07D9QJ8YZ",
+          "label": "Ultra Pro Playmat"
+        },
+        "budgetArt": {
+          "asin": "B07D9QJ8YZ",
+          "label": "Ultra Pro Art Playmat"
+        },
+        "budgetBasic": {
+          "asin": "B07D9QJ8YZ",
+          "label": "Ultra Pro Playmat"
+        }
+      }
+    },
+    "carryingCases": {
+      "label": "Card carrying cases",
+      "products": {
+        "premium": {
+          "asin": "B0C6SS8RSB",
+          "label": "Ultimate Guard Boulder Solid 100+ (portable)"
+        },
+        "budget": {
+          "asin": "B06XGSJS7N",
+          "label": "Ultimate Guard Boulder 100+"
+        }
+      }
+    },
+    "plusOneCounters": {
+      "label": "+1/+1 counters",
+      "products": {
+        "premium": {
+          "asin": "B00004TZY8",
+          "label": "Chessex Dice (use as +1/+1 counters)"
+        },
+        "budget": {
+          "asin": "B00004TZY8",
+          "label": "Chessex Dice (use as +1/+1 counters)"
+        }
+      }
+    },
+    "diceBoxes": {
+      "label": "Dice boxes",
+      "products": {
+        "premium": {
+          "asin": "B06XGSJS7N",
+          "label": "Ultimate Guard Boulder (dice + deck)"
+        },
+        "budget": {
+          "asin": "B00004TZY8",
+          "label": "Chessex Dice Block Case"
+        }
+      }
+    },
+    "comboSets": {
+      "label": "Combo / bulk sets",
+      "products": {
+        "premium": {
+          "asin": "B06XGSJS7N",
+          "label": "Ultimate Guard Boulder 100+"
+        },
+        "budget": {
+          "asin": "B00WX57O7M",
+          "label": "Dragon Shield Matte Sleeves — Black"
+        }
+      }
+    }
+  },
+  "sleevesByHue": {
+    "red": {
+      "premium": { "asin": "B0B337ZY41", "label": "Dragon Shield Matte — Blood Red" },
+      "premiumArt": { "asin": "B0B337ZY41", "label": "Dragon Shield Matte — Blood Red" },
+      "budget": { "asin": "B01G25NEW2", "label": "Dragon Shield Matte Clear" },
+      "budgetArt": { "asin": "B0B337ZY41", "label": "Dragon Shield Matte — Blood Red" }
+    },
+    "orange": {
+      "premium": { "asin": "B071D9WJ5K", "label": "Dragon Shield Matte — Yellow/Orange family" },
+      "premiumArt": { "asin": "B071D9WJ5K", "label": "Dragon Shield Matte — Yellow/Orange family" },
+      "budget": { "asin": "B01G25NEW2", "label": "Dragon Shield Matte Clear" },
+      "budgetArt": { "asin": "B071D9WJ5K", "label": "Dragon Shield Matte — Yellow/Orange family" }
+    },
+    "yellow": {
+      "premium": { "asin": "B071D9WJ5K", "label": "Dragon Shield Matte — Yellow" },
+      "premiumArt": { "asin": "B071D9WJ5K", "label": "Dragon Shield Matte — Yellow" },
+      "budget": { "asin": "B01G25NEW2", "label": "Dragon Shield Matte Clear" },
+      "budgetArt": { "asin": "B071D9WJ5K", "label": "Dragon Shield Matte — Yellow" }
+    },
+    "green": {
+      "premium": { "asin": "B0C18VY3LL", "label": "Dragon Shield Matte — Forest Green" },
+      "premiumArt": { "asin": "B0C18VY3LL", "label": "Dragon Shield Matte — Forest Green" },
+      "budget": { "asin": "B01G25NEW2", "label": "Dragon Shield Matte Clear" },
+      "budgetArt": { "asin": "B0C18VY3LL", "label": "Dragon Shield Matte — Forest Green" }
+    },
+    "teal": {
+      "premium": { "asin": "B0BX21VDRV", "label": "Dragon Shield Matte — Midnight Blue" },
+      "premiumArt": { "asin": "B0BX21VDRV", "label": "Dragon Shield Matte — Midnight Blue" },
+      "budget": { "asin": "B01G25NEW2", "label": "Dragon Shield Matte Clear" },
+      "budgetArt": { "asin": "B0BX21VDRV", "label": "Dragon Shield Matte — Midnight Blue" }
+    },
+    "blue": {
+      "premium": { "asin": "B00YFVCS7S", "label": "Dragon Shield Matte — Blue" },
+      "premiumArt": { "asin": "B07DXLNYH4", "label": "Dragon Shield Matte — Sapphire" },
+      "budget": { "asin": "B01G25NEW2", "label": "Dragon Shield Matte Clear" },
+      "budgetArt": { "asin": "B07DXLNYH4", "label": "Dragon Shield Matte — Sapphire" }
+    },
+    "purple": {
+      "premium": { "asin": "B073G88D1M", "label": "Dragon Shield Matte — Jet / dark purple family" },
+      "premiumArt": { "asin": "B073G88D1M", "label": "Dragon Shield Matte — Jet" },
+      "budget": { "asin": "B01G25NEW2", "label": "Dragon Shield Matte Clear" },
+      "budgetArt": { "asin": "B073G88D1M", "label": "Dragon Shield Matte — Jet" }
+    },
+    "pink": {
+      "premium": { "asin": "B00WX57OO0", "label": "Dragon Shield Matte — White / pink family" },
+      "premiumArt": { "asin": "B00WX57OO0", "label": "Dragon Shield Matte — White" },
+      "budget": { "asin": "B01G25NEW2", "label": "Dragon Shield Matte Clear" },
+      "budgetArt": { "asin": "B00WX57OO0", "label": "Dragon Shield Matte — White" }
+    },
+    "brown": {
+      "premium": { "asin": "B071D9WJ5K", "label": "Dragon Shield Matte — Copper/Amber family" },
+      "premiumArt": { "asin": "B071D9WJ5K", "label": "Dragon Shield Matte — Copper/Amber family" },
+      "budget": { "asin": "B01G25NEW2", "label": "Dragon Shield Matte Clear" },
+      "budgetArt": { "asin": "B071D9WJ5K", "label": "Dragon Shield Matte — Copper/Amber family" }
+    },
+    "black": {
+      "premium": { "asin": "B00WX57O7M", "label": "Dragon Shield Matte — Black" },
+      "premiumArt": { "asin": "B073G88D1M", "label": "Dragon Shield Matte — Jet" },
+      "budget": { "asin": "B01G25NEW2", "label": "Dragon Shield Matte Clear" },
+      "budgetArt": { "asin": "B00WX57O7M", "label": "Dragon Shield Matte — Black" }
+    },
+    "white": {
+      "premium": { "asin": "B00WX57OO0", "label": "Dragon Shield Matte — White" },
+      "premiumArt": { "asin": "B00WX57OO0", "label": "Dragon Shield Matte — White" },
+      "budget": { "asin": "B01G25NEW2", "label": "Dragon Shield Matte Clear" },
+      "budgetArt": { "asin": "B00WX57OO0", "label": "Dragon Shield Matte — White" }
+    },
+    "gray": {
+      "premium": { "asin": "B07KGNM858", "label": "Dragon Shield Matte — Silver" },
+      "premiumArt": { "asin": "B07KGNM858", "label": "Dragon Shield Matte — Silver" },
+      "budget": { "asin": "B01G25NEW2", "label": "Dragon Shield Matte Clear" },
+      "budgetArt": { "asin": "B07KGNM858", "label": "Dragon Shield Matte — Silver" }
+    }
+  },
+  "proxySupplies": {
+    "budget": [
+      {
+        "name": "Letter-size cardstock (65–110 lb)",
+        "asin": "B01FV0F8I6",
+        "label": "Hammermill Cardstock Letter"
+      },
+      {
+        "name": "Matte photo / inkjet paper",
+        "asin": "B000VE7ECK",
+        "label": "HP Everyday Matte Paper"
+      },
+      {
+        "name": "Paper cutter / craft knife",
+        "asin": "B00006IF5W",
+        "label": "Fiskars Paper Trimmer"
+      },
+      {
+        "name": "Budget sleeves for proxies",
+        "asin": "B01G25NEW2",
+        "label": "Dragon Shield Matte Clear (100)"
+      }
+    ],
+    "premium": [
+      {
+        "name": "Premium laser-safe cardstock",
+        "asin": "B01FV0F8I6",
+        "label": "Hammermill Premium Cardstock"
+      },
+      {
+        "name": "Precision paper cutter",
+        "asin": "B00006IF5W",
+        "label": "Fiskars Precision Trimmer"
+      },
+      {
+        "name": "Dragon Shield Clear sleeves",
+        "asin": "B01G25NEW2",
+        "label": "Dragon Shield Matte Clear (100)"
+      },
+      {
+        "name": "Dragon Shield Black outers",
+        "asin": "B00WX57O7M",
+        "label": "Dragon Shield Matte — Black (100)"
+      }
+    ]
+  },
+  "beginnerDecks": {
+    "aggro": [
+      {
+        "name": "Party Time",
+        "asin": "B09VB4KP78",
+        "commander": "Nalia de'Arnise",
+        "description": "Assemble a party of creatures and attack together. Fast, social, and easy to pilot."
+      },
+      {
+        "name": "Exit from Exile",
+        "asin": "B09VBGNJ7B",
+        "commander": "Faldorn, Dread Wolf Herald",
+        "description": "Pressure the table with exile payoffs and aggressive creatures."
+      }
+    ],
+    "control": [
+      {
+        "name": "Mind Flayarrrs",
+        "asin": "B09VB9MX16",
+        "commander": "Captain N'ghathrod",
+        "description": "Mill opponents and steal their best creatures. Teaches timing and answers."
+      }
+    ],
+    "tokens": [
+      {
+        "name": "Virtue and Valor",
+        "asin": "B0C3SR4GVH",
+        "commander": "Ellivere of the Wild Court",
+        "description": "Grow a board of enchanted creatures and tokens. Fun boards without complex rules."
+      },
+      {
+        "name": "Party Time",
+        "asin": "B09VB4KP78",
+        "commander": "Nalia de'Arnise",
+        "description": "Fill roles in your party and swarm the table with creatures."
+      }
+    ],
+    "bigCreatures": [
+      {
+        "name": "Exit from Exile",
+        "asin": "B09VBGNJ7B",
+        "commander": "Faldorn, Dread Wolf Herald",
+        "description": "Ramp, exile, then smash with giant threats and wolves. Big and satisfying."
+      }
+    ],
+    "spellslinger": [
+      {
+        "name": "Mind Flayarrrs",
+        "asin": "B09VB9MX16",
+        "commander": "Captain N'ghathrod",
+        "description": "Spell-heavy blue-black tricks — mill, steal, and react."
+      },
+      {
+        "name": "Virtue and Valor",
+        "asin": "B0C3SR4GVH",
+        "commander": "Ellivere of the Wild Court",
+        "description": "Aura-driven plays that feel like clever spell stacking on your creatures."
+      }
+    ],
+    "lifegain": [
+      {
+        "name": "Virtue and Valor",
+        "asin": "B0C3SR4GVH",
+        "commander": "Ellivere of the Wild Court",
+        "description": "Buff creatures and stay resilient. Forgiving while you learn the format."
+      },
+      {
+        "name": "Party Time",
+        "asin": "B09VB4KP78",
+        "commander": "Nalia de'Arnise",
+        "description": "A sturdy creature deck that can grind value over longer games."
+      }
+    ]
+  }
+}

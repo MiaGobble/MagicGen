@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 745 1040" fill="none">
+  <rect width="745" height="1040" rx="36" fill="#0F2920"/>
+  <rect x="28" y="28" width="689" height="984" rx="28" stroke="#C9A227" stroke-width="8" fill="#16382D"/>
+  <rect x="56" y="56" width="633" height="928" rx="20" stroke="#B8922A" stroke-width="2" fill="#1A4D3E"/>
+  <circle cx="372.5" cy="480" r="140" stroke="#D4AE45" stroke-width="6" fill="#245A48"/>
+  <path d="M372.5 360 L402 448 L494 456 L424 516 L444 606 L372.5 554 L301 606 L321 516 L251 456 L343 448 Z" fill="#D4AE45"/>
+  <text x="372.5" y="780" text-anchor="middle" fill="#E8D9A0" font-family="Georgia, serif" font-size="42" font-weight="700">MagicGen</text>
+  <text x="372.5" y="830" text-anchor="middle" fill="#9FB8A6" font-family="Georgia, serif" font-size="22">Playtest Card Back</text>
+</svg>
