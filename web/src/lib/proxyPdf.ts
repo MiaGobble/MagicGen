@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import { getCardImage, type ScryfallCard } from "./scryfall";
+import { isAllowedScryfallUrl } from "./safeUrl";
 
 export type ProxyPdfOptions = {
   bleedMm: number;
@@ -27,9 +28,16 @@ const PAPER: Record<ProxyPdfOptions["paper"], { w: number; h: number }> = {
 };
 
 async function imageToJpegDataUrl(url: string): Promise<string> {
+  if (!isAllowedScryfallUrl(url) && !url.startsWith("/")) {
+    throw new Error("Blocked disallowed image URL");
+  }
   const res = await fetch(url, { mode: "cors", credentials: "omit" });
   if (!res.ok) throw new Error(`Image fetch failed (${res.status})`);
   const blob = await res.blob();
+  if (!blob.type.startsWith("image/") && blob.type !== "application/octet-stream") {
+    throw new Error("Unexpected image content type");
+  }
+  if (blob.size > 8_000_000) throw new Error("Image too large");
   const bitmap = await createImageBitmap(blob);
   const canvas = document.createElement("canvas");
   canvas.width = bitmap.width;

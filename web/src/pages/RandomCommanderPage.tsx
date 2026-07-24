@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router";
 import { CommanderFilters, DEFAULT_FILTERS, type FilterState } from "../components/CommanderFilters";
 import { DeckActions } from "../components/DeckActions";
 import { ColorIdentity, ManaCost } from "../components/Mana";

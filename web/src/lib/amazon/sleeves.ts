@@ -13,6 +13,7 @@ import {
   titleHasColorSynonym,
   titleHasConflictingColor,
 } from "./color";
+import { isAllowedAmazonUrl } from "../safeUrl";
 
 type SleeveCatalogEntry = {
   name: string;
@@ -433,6 +434,9 @@ function parseAmazonSearchHtml(html: string): AmazonSearchHit[] {
 }
 
 async function fetchViaCorsProxy(url: string): Promise<string | null> {
+  // Only proxy Amazon product/search pages — never arbitrary third-party URLs.
+  if (!isAllowedAmazonUrl(url)) return null;
+
   // Prefer one fast proxy; fall back once. Short timeouts so catalog fallback is quick.
   const proxies = [
     `https://corsproxy.io/?${encodeURIComponent(url)}`,
@@ -446,8 +450,8 @@ async function fetchViaCorsProxy(url: string): Promise<string | null> {
       clearTimeout(timer);
       if (!res.ok) continue;
       const text = await res.text();
-      // Text only — callers must regex-parse; never assign to innerHTML
-      if (text && text.length > 500) return text;
+      // Cap size; text only — callers must regex-parse; never assign to innerHTML
+      if (text && text.length > 500 && text.length < 2_500_000) return text;
     } catch {
       /* try next proxy */
     }

@@ -51,7 +51,18 @@ export function Seo({ title, description, path = "/", image = DEFAULT_OG_IMAGE, 
 
   useEffect(() => {
     const fullTitle = title.includes("MagicGen") ? title : `${title} | MagicGen`;
-    const canonical = path.startsWith("http") ? path : `${SITE_ORIGIN}${path === "/" ? "/" : path}`;
+    // Canonical must stay on our origin — reject protocol-relative / external paths
+    const safePath =
+      path.startsWith("/") && !path.startsWith("//") && !path.includes("://")
+        ? path
+        : "/";
+    const canonical = `${SITE_ORIGIN}${safePath === "/" ? "/" : safePath}`;
+    const safeImage =
+      image.startsWith(SITE_ORIGIN + "/") || image.startsWith("/")
+        ? image.startsWith("/")
+          ? `${SITE_ORIGIN}${image}`
+          : image
+        : DEFAULT_OG_IMAGE;
 
     document.title = fullTitle;
     upsertMeta("name", "description", description);
@@ -60,11 +71,11 @@ export function Seo({ title, description, path = "/", image = DEFAULT_OG_IMAGE, 
     upsertMeta("property", "og:title", fullTitle);
     upsertMeta("property", "og:description", description);
     upsertMeta("property", "og:url", canonical);
-    upsertMeta("property", "og:image", image);
+    upsertMeta("property", "og:image", safeImage);
     upsertMeta("name", "twitter:card", "summary");
     upsertMeta("name", "twitter:title", fullTitle);
     upsertMeta("name", "twitter:description", description);
-    upsertMeta("name", "twitter:image", image);
+    upsertMeta("name", "twitter:image", safeImage);
     upsertLink("canonical", canonical);
 
     if (jsonLd) {

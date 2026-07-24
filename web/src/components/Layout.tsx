@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet } from "react-router";
 import { useState } from "react";
 import { ToastProvider } from "./Toast";
 

@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import { Layout } from "./components/Layout";
 import { BeginnerStarterPage } from "./pages/BeginnerStarterPage";
 import { BoosterGenPage } from "./pages/BoosterGenPage";

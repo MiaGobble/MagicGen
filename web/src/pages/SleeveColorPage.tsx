@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
 import { matchSleeveColor, type SleeveMatchResult } from "../lib/amazon";
+import { isSafeExternalHref } from "../lib/safeUrl";
 
 export function SleeveColorPage() {
   const { toast } = useToast();
@@ -131,7 +132,12 @@ export function SleeveColorPage() {
                 </div>
               </div>
               <p style={{ marginTop: "1rem" }}>{result.title}</p>
-              <a className="btn btn-brass" href={result.url} target="_blank" rel="noopener noreferrer">
+              <a
+                className="btn btn-brass"
+                href={isSafeExternalHref(result.url) ? result.url : "https://www.amazon.com/s?k=Dragon+Shield+Matte"}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 {result.url.includes("/dp/") ? "Open product on Amazon" : "Open color search on Amazon"}
               </a>
             </>

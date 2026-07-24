@@ -1,8 +1,5 @@
-/**
- * Scryfall API client.
- * Sections: types → fetch/throttle → card helpers → commander search →
- * collection → printings (pimping) → mana symbols.
- */
+import { isAllowedEdhrecUrl, isAllowedScryfallUrl } from "./safeUrl";
+
 export type ScryfallCard = {
   id: string;
   name: string;
@@ -146,6 +143,11 @@ function buildScryfallHeaders(init?: RequestInit): Headers {
 
 export async function scryfallFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const url = path.startsWith("http") ? path : `${BASE}${path}`;
+  // Only Scryfall API / CDNs, or EDHREC JSON (reuses this client). Block open SSRF.
+  if (url.startsWith("http")) {
+    const allowed = isAllowedScryfallUrl(url) || isAllowedEdhrecUrl(url);
+    if (!allowed) throw new Error("Blocked disallowed fetch URL");
+  }
   let attempt = 0;
   while (true) {
     await throttle();
