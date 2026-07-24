@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { CommanderFilters, DEFAULT_FILTERS, type FilterState } from "../components/CommanderFilters";
 import { ColorIdentity } from "../components/Mana";
-import { useToast } from "../components/Toast";
+import { Seo } from "../components/Seo";
+import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
 import { getCardImage } from "../lib/scryfall";
 import { generatePod, type PodSeat } from "../lib/pod";
 
@@ -40,6 +41,7 @@ export function PodGeneratorPage() {
       });
       setPod(seats);
       toast(`Pod ready (${seats.length} seats)`, "success");
+      maybeShowKofiSupportToast(toast);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed";
       setError(msg.includes("no pods") ? "no pods within filters found" : msg);
@@ -51,6 +53,11 @@ export function PodGeneratorPage() {
 
   return (
     <div className="tool-page container">
+      <Seo
+        title="Commander Pod Generator"
+        description="Build balanced multiplayer Magic: The Gathering commander pods that counter and complement each other."
+        path="/pod"
+      />
       <header className="tool-header">
         <h1>Commander pod generator</h1>
         <p>

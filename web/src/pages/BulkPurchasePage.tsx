@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
 import { parseMoxfieldList } from "../lib/moxfield";
 import {
@@ -69,6 +70,11 @@ export function BulkPurchasePage() {
 
   return (
     <div className="tool-page container">
+      <Seo
+        title="Bulk Purchasing"
+        description="Price a Magic deck list across vendors, compare shipping splits, and open optimized carts."
+        path="/bulk"
+      />
       <header className="tool-header">
         <h1>Bulk purchasing</h1>
         <p>

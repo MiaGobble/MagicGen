@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { DeckActions } from "../components/DeckActions";
-import { useToast } from "../components/Toast";
+import { Seo } from "../components/Seo";
+import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
 import {
   BOOSTER_PRESETS,
   DEFAULT_BOOSTER_RULES,
@@ -71,6 +72,7 @@ export function BoosterGenPage() {
       setResult(packsOut);
       const n = packsOut.reduce((s, p) => s + p.cards.length, 0);
       toast(`Generated ${packsOut.length} pack${packsOut.length === 1 ? "" : "s"} (${n} cards)`, "success");
+      maybeShowKofiSupportToast(toast);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate");
       toast("Booster generation failed", "error");
@@ -83,6 +85,11 @@ export function BoosterGenPage() {
 
   return (
     <div className="tool-page container">
+      <Seo
+        title="Booster Pack Generator"
+        description="Build custom Magic: The Gathering draft boosters with per-rarity Scryfall queries and presets."
+        path="/booster"
+      />
       <header className="tool-header">
         <h1>Booster pack generator</h1>
         <p>

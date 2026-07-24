@@ -8,8 +8,12 @@
 export const AFFILIATE_TAG = "igottic-20";
 
 export function amazonProductUrl(asin: string): string {
+  const clean = asin.replace(/[^A-Z0-9]/gi, "").slice(0, 10);
+  if (clean.length !== 10) {
+    return amazonSearchUrl("card sleeves matte");
+  }
   const params = new URLSearchParams({ tag: AFFILIATE_TAG, th: "1", psc: "1" });
-  return `https://www.amazon.com/dp/${asin}?${params.toString()}`;
+  return `https://www.amazon.com/dp/${clean}?${params.toString()}`;
 }
 
 export function amazonSearchUrl(query: string): string {
@@ -31,6 +35,19 @@ export type HueName =
   | "white"
   | "gray";
 
+/** Coarse hue families used to block cross-family sleeve wins (navy≠purple). */
+type HueFamily =
+  | "red"
+  | "orange"
+  | "yellow"
+  | "green"
+  | "teal"
+  | "blue"
+  | "purple"
+  | "pink"
+  | "brown"
+  | "neutral";
+
 const PREMIUM_SLEEVE_BRANDS = ["dragon shield", "ultimate guard", "katana", "gamegenic"];
 
 type SleeveCatalogEntry = {
@@ -38,69 +55,148 @@ type SleeveCatalogEntry = {
   brand: string;
   hex: string;
   asin: string;
+  family: HueFamily;
   art?: boolean;
   premium?: boolean;
 };
 
 /**
- * Curated sleeve catalog — Dragon Shield Matte hexes tuned to product photos
- * (approximate; used for CIEDE2000 nearest-neighbor matching).
+ * Curated sleeve catalog — Dragon Shield Matte (+ some Ultimate Guard) hexes
+ * approximated from product photos / brand naming. Used for CIEDE2000 matching.
  */
 const SLEEVE_CATALOG: SleeveCatalogEntry[] = [
-  { name: "Blood Red", brand: "Dragon Shield", hex: "#6E0F14", asin: "B0B337ZY41", premium: true },
-  { name: "Red", brand: "Dragon Shield", hex: "#C62828", asin: "B0B337ZY41", premium: true },
-  { name: "Crimson", brand: "Dragon Shield", hex: "#9B1B2F", asin: "B08GCZ427C", premium: true },
-  { name: "Ruby", brand: "Dragon Shield", hex: "#D32F2F", asin: "B08GCZ427C", premium: true },
-  { name: "Orange", brand: "Dragon Shield", hex: "#EF6C00", asin: "B07KY5Y97G", premium: true },
-  { name: "Copper", brand: "Dragon Shield", hex: "#A05A2C", asin: "B01N1PAO9D", premium: true },
-  { name: "Yellow", brand: "Dragon Shield", hex: "#FBC02D", asin: "B071D9WJ5K", premium: true },
-  { name: "Gold", brand: "Dragon Shield", hex: "#C9A227", asin: "B071D9WJ5K", premium: true },
-  { name: "Apple Green", brand: "Dragon Shield", hex: "#8BC34A", asin: "B0C18VY3LL", premium: true },
-  { name: "Forest Green", brand: "Dragon Shield", hex: "#2E7D32", asin: "B0C18VY3LL", premium: true },
-  { name: "Forest", brand: "Dragon Shield", hex: "#1B5E20", asin: "B0C18VY3LL", premium: true },
-  // True emerald green (was incorrectly teal #00897B)
-  { name: "Emerald", brand: "Dragon Shield", hex: "#009B4D", asin: "B0C18VY3LL", premium: true },
-  { name: "Mint", brand: "Dragon Shield", hex: "#7DCEA0", asin: "B0C18VY3LL", premium: true },
-  { name: "Lime", brand: "Dragon Shield", hex: "#C0CA33", asin: "B0C18VY3LL", premium: true },
-  { name: "Petrol", brand: "Dragon Shield", hex: "#004D40", asin: "B0BX21VDRV", premium: true },
-  { name: "Turquoise", brand: "Dragon Shield", hex: "#26A69A", asin: "B0BX21VDRV", premium: true },
-  { name: "Teal", brand: "Ultimate Guard", hex: "#00897B", asin: "B0BX21VDRV", premium: true },
-  { name: "Sky Blue", brand: "Dragon Shield", hex: "#4FC3F7", asin: "B00YFVCS7S", premium: true },
-  { name: "Blue", brand: "Dragon Shield", hex: "#1565C0", asin: "B00YFVCS7S", premium: true },
-  { name: "Sapphire", brand: "Dragon Shield", hex: "#0D47A1", asin: "B07DXLNYH4", premium: true },
-  { name: "Midnight Blue", brand: "Dragon Shield", hex: "#0D1B4C", asin: "B0BX21VDRV", premium: true },
-  { name: "Night Blue", brand: "Dragon Shield", hex: "#1A237E", asin: "B0BX21VDRV", premium: true },
-  { name: "Navy", brand: "Ultimate Guard", hex: "#0A2540", asin: "B07DXLNYH4", premium: true },
-  { name: "Purple", brand: "Dragon Shield", hex: "#6A1B9A", asin: "B073G88D1M", premium: true },
-  { name: "Amethyst", brand: "Dragon Shield", hex: "#9C27B0", asin: "B073G88D1M", premium: true },
-  { name: "Violet", brand: "Ultimate Guard", hex: "#7B1FA2", asin: "B073G88D1M", premium: true },
-  { name: "Magenta", brand: "Dragon Shield", hex: "#C2185B", asin: "B0B337ZY41", premium: true },
-  { name: "Pink", brand: "Dragon Shield", hex: "#EC407A", asin: "B0B337ZY41", premium: true },
-  { name: "Pink Diamond", brand: "Dragon Shield", hex: "#F8BBD0", asin: "B00WX57OO0", premium: true },
-  { name: "Rose", brand: "Dragon Shield", hex: "#E91E63", asin: "B0B337ZY41", premium: true },
-  { name: "Black", brand: "Dragon Shield", hex: "#1A1A1A", asin: "B00WX57O7M", premium: true },
-  { name: "Jet", brand: "Dragon Shield", hex: "#0A0A0A", asin: "B00WX57O7M", premium: true },
-  { name: "Silver", brand: "Dragon Shield", hex: "#B0BEC5", asin: "B07KGNM858", premium: true },
-  { name: "Gray", brand: "Dragon Shield", hex: "#78909C", asin: "B07KGNM858", premium: true },
-  { name: "White", brand: "Dragon Shield", hex: "#FAFAFA", asin: "B00WX57OO0", premium: true },
-  { name: "Ivory", brand: "Dragon Shield", hex: "#FFF3E0", asin: "B00WX57OO0", premium: true },
-  { name: "Clear", brand: "Dragon Shield", hex: "#ECEFF1", asin: "B01G25NEW2", premium: true },
+  // —— Reds ——
+  { name: "Blood Red", brand: "Dragon Shield", hex: "#6B0F12", asin: "B0B337ZY41", family: "red", premium: true },
+  { name: "Ruby", brand: "Dragon Shield", hex: "#C41E3A", asin: "B08GCZ427C", family: "red", premium: true },
+  { name: "Crimson", brand: "Dragon Shield", hex: "#9B1B2F", asin: "B08GCZ427C", family: "red", premium: true },
+  { name: "Red", brand: "Dragon Shield", hex: "#D32F2F", asin: "B0B337ZY41", family: "red", premium: true },
+  { name: "Ember", brand: "Dragon Shield", hex: "#E53935", asin: "B0B337ZY41", family: "red", premium: true },
+  // —— Orange / copper / brown ——
+  { name: "Orange", brand: "Dragon Shield", hex: "#EF6C00", asin: "B07KY5Y97G", family: "orange", premium: true },
+  { name: "Copper", brand: "Dragon Shield", hex: "#A05A2C", asin: "B01N1PAO9D", family: "brown", premium: true },
+  { name: "Amber", brand: "Dragon Shield", hex: "#FF8F00", asin: "B07KY5Y97G", family: "orange", premium: true },
+  // —— Yellow / gold ——
+  { name: "Yellow", brand: "Dragon Shield", hex: "#FBC02D", asin: "B071D9WJ5K", family: "yellow", premium: true },
+  { name: "Gold", brand: "Dragon Shield", hex: "#C9A227", asin: "B071D9WJ5K", family: "yellow", premium: true },
+  // —— Greens ——
+  { name: "Lime", brand: "Dragon Shield", hex: "#C0CA33", asin: "B0C18VY3LL", family: "green", premium: true },
+  { name: "Apple Green", brand: "Dragon Shield", hex: "#8BC34A", asin: "B0C18VY3LL", family: "green", premium: true },
+  { name: "Green", brand: "Dragon Shield", hex: "#43A047", asin: "B0C18VY3LL", family: "green", premium: true },
+  { name: "Forest Green", brand: "Dragon Shield", hex: "#2E7D32", asin: "B0C18VY3LL", family: "green", premium: true },
+  { name: "Forest", brand: "Dragon Shield", hex: "#1B5E20", asin: "B0C18VY3LL", family: "green", premium: true },
+  { name: "Jade", brand: "Dragon Shield", hex: "#00A86B", asin: "B0C18VY3LL", family: "green", premium: true },
+  { name: "Emerald", brand: "Dragon Shield", hex: "#009B4D", asin: "B0C18VY3LL", family: "green", premium: true },
+  { name: "Mint", brand: "Dragon Shield", hex: "#7DCEA0", asin: "B0C18VY3LL", family: "green", premium: true },
+  // —— Teal / petrol ——
+  { name: "Petrol", brand: "Dragon Shield", hex: "#004D40", asin: "B0BX21VDRV", family: "teal", premium: true },
+  { name: "Turquoise", brand: "Dragon Shield", hex: "#26A69A", asin: "B0BX21VDRV", family: "teal", premium: true },
+  { name: "Teal", brand: "Ultimate Guard", hex: "#00897B", asin: "B0BX21VDRV", family: "teal", premium: true },
+  { name: "Amazonite", brand: "Dragon Shield", hex: "#4DB6AC", asin: "B0BX21VDRV", family: "teal", premium: true },
+  // —— Blues ——
+  { name: "Sky Blue", brand: "Dragon Shield", hex: "#4FC3F7", asin: "B00YFVCS7S", family: "blue", premium: true },
+  { name: "Blue", brand: "Dragon Shield", hex: "#1565C0", asin: "B00YFVCS7S", family: "blue", premium: true },
+  { name: "Sapphire", brand: "Dragon Shield", hex: "#0D47A1", asin: "B07DXLNYH4", family: "blue", premium: true },
+  { name: "Night Blue", brand: "Dragon Shield", hex: "#1A237E", asin: "B0BX21VDRV", family: "blue", premium: true },
+  { name: "Midnight Blue", brand: "Dragon Shield", hex: "#0D1B4C", asin: "B0BX21VDRV", family: "blue", premium: true },
+  { name: "Navy", brand: "Ultimate Guard", hex: "#0A2540", asin: "B07DXLNYH4", family: "blue", premium: true },
+  // —— Purples ——
+  { name: "Purple", brand: "Dragon Shield", hex: "#6A1B9A", asin: "B073G88D1M", family: "purple", premium: true },
+  { name: "Amethyst", brand: "Dragon Shield", hex: "#9C27B0", asin: "B073G88D1M", family: "purple", premium: true },
+  { name: "Violet", brand: "Ultimate Guard", hex: "#7B1FA2", asin: "B073G88D1M", family: "purple", premium: true },
+  { name: "Nebula", brand: "Dragon Shield", hex: "#5E35B1", asin: "B073G88D1M", family: "purple", premium: true },
+  // —— Pinks / magenta ——
+  { name: "Magenta", brand: "Dragon Shield", hex: "#C2185B", asin: "B0B337ZY41", family: "pink", premium: true },
+  { name: "Pink", brand: "Dragon Shield", hex: "#EC407A", asin: "B0B337ZY41", family: "pink", premium: true },
+  { name: "Pink Diamond", brand: "Dragon Shield", hex: "#F8BBD0", asin: "B00WX57OO0", family: "pink", premium: true },
+  { name: "Pink Sapphire", brand: "Dragon Shield", hex: "#F48FB1", asin: "B00WX57OO0", family: "pink", premium: true },
+  { name: "Rose", brand: "Dragon Shield", hex: "#E91E63", asin: "B0B337ZY41", family: "pink", premium: true },
+  // —— Neutrals ——
+  { name: "Black", brand: "Dragon Shield", hex: "#1A1A1A", asin: "B00WX57O7M", family: "neutral", premium: true },
+  { name: "Jet", brand: "Dragon Shield", hex: "#0A0A0A", asin: "B00WX57O7M", family: "neutral", premium: true },
+  { name: "Silver", brand: "Dragon Shield", hex: "#B0BEC5", asin: "B07KGNM858", family: "neutral", premium: true },
+  { name: "Gray", brand: "Dragon Shield", hex: "#78909C", asin: "B07KGNM858", family: "neutral", premium: true },
+  { name: "White", brand: "Dragon Shield", hex: "#FAFAFA", asin: "B00WX57OO0", family: "neutral", premium: true },
+  { name: "Ivory", brand: "Dragon Shield", hex: "#FFF3E0", asin: "B00WX57OO0", family: "neutral", premium: true },
+  { name: "Clear", brand: "Dragon Shield", hex: "#ECEFF1", asin: "B01G25NEW2", family: "neutral", premium: true },
   // Art / dual-art sleeves — approximate dominant colors for matching
-  { name: "Dual Matte Art", brand: "Dragon Shield", hex: "#455A64", asin: "B0DM939C7L", premium: true, art: true },
-  { name: "Art Red", brand: "Dragon Shield", hex: "#C62828", asin: "B0DM939C7L", premium: true, art: true },
-  { name: "Art Blue", brand: "Dragon Shield", hex: "#1565C0", asin: "B0DM939C7L", premium: true, art: true },
-  { name: "Art Green", brand: "Dragon Shield", hex: "#2E7D32", asin: "B0DM939C7L", premium: true, art: true },
-  { name: "Art Purple", brand: "Dragon Shield", hex: "#6A1B9A", asin: "B0DM939C7L", premium: true, art: true },
-  { name: "Art Black", brand: "Dragon Shield", hex: "#1A1A1A", asin: "B0DM939C7L", premium: true, art: true },
-  { name: "Art Pink", brand: "Dragon Shield", hex: "#EC407A", asin: "B0DM939C7L", premium: true, art: true },
-  { name: "Budget Clear", brand: "Generic", hex: "#ECEFF1", asin: "B01G25NEW2", premium: false },
-  { name: "Budget Black", brand: "Generic", hex: "#1A1A1A", asin: "B00WX57O7M", premium: false },
-  { name: "Budget Red", brand: "Generic", hex: "#C62828", asin: "B0B337ZY41", premium: false },
-  { name: "Budget Blue", brand: "Generic", hex: "#1565C0", asin: "B00YFVCS7S", premium: false },
-  { name: "Budget Green", brand: "Generic", hex: "#2E7D32", asin: "B0C18VY3LL", premium: false },
-  { name: "Budget Purple", brand: "Generic", hex: "#6A1B9A", asin: "B073G88D1M", premium: false },
-  { name: "Budget Art", brand: "Generic", hex: "#546E7A", asin: "B0DM939C7L", premium: false, art: true },
+  { name: "Dual Matte Art", brand: "Dragon Shield", hex: "#455A64", asin: "B0DM939C7L", family: "neutral", premium: true, art: true },
+  { name: "Art Red", brand: "Dragon Shield", hex: "#C62828", asin: "B0DM939C7L", family: "red", premium: true, art: true },
+  { name: "Art Blue", brand: "Dragon Shield", hex: "#1565C0", asin: "B0DM939C7L", family: "blue", premium: true, art: true },
+  { name: "Art Green", brand: "Dragon Shield", hex: "#2E7D32", asin: "B0DM939C7L", family: "green", premium: true, art: true },
+  { name: "Art Purple", brand: "Dragon Shield", hex: "#6A1B9A", asin: "B0DM939C7L", family: "purple", premium: true, art: true },
+  { name: "Art Black", brand: "Dragon Shield", hex: "#1A1A1A", asin: "B0DM939C7L", family: "neutral", premium: true, art: true },
+  { name: "Art Pink", brand: "Dragon Shield", hex: "#EC407A", asin: "B0DM939C7L", family: "pink", premium: true, art: true },
+  // Budget solids (same hex families; soft-prefer when premium is off)
+  { name: "Budget Clear", brand: "Generic", hex: "#ECEFF1", asin: "B01G25NEW2", family: "neutral", premium: false },
+  { name: "Budget Black", brand: "Generic", hex: "#1A1A1A", asin: "B00WX57O7M", family: "neutral", premium: false },
+  { name: "Budget Red", brand: "Generic", hex: "#C62828", asin: "B0B337ZY41", family: "red", premium: false },
+  { name: "Budget Blue", brand: "Generic", hex: "#1565C0", asin: "B00YFVCS7S", family: "blue", premium: false },
+  { name: "Budget Green", brand: "Generic", hex: "#2E7D32", asin: "B0C18VY3LL", family: "green", premium: false },
+  { name: "Budget Purple", brand: "Generic", hex: "#6A1B9A", asin: "B073G88D1M", family: "purple", premium: false },
+  { name: "Budget Art", brand: "Generic", hex: "#546E7A", asin: "B0DM939C7L", family: "neutral", premium: false, art: true },
 ];
+
+/** Tight synonyms accepted in Amazon titles for a given winning color name. */
+const COLOR_SYNONYMS: Record<string, string[]> = {
+  "blood red": ["blood red", "blood"],
+  ruby: ["ruby"],
+  crimson: ["crimson"],
+  red: ["red"],
+  ember: ["ember"],
+  orange: ["orange"],
+  copper: ["copper"],
+  amber: ["amber"],
+  yellow: ["yellow"],
+  gold: ["gold"],
+  lime: ["lime"],
+  "apple green": ["apple green", "apple"],
+  green: ["green"],
+  "forest green": ["forest green", "forest"],
+  forest: ["forest", "forest green"],
+  jade: ["jade"],
+  emerald: ["emerald"],
+  mint: ["mint"],
+  petrol: ["petrol"],
+  turquoise: ["turquoise"],
+  teal: ["teal"],
+  amazonite: ["amazonite"],
+  "sky blue": ["sky blue", "sky"],
+  blue: ["blue"],
+  sapphire: ["sapphire"],
+  "night blue": ["night blue", "nightblue"],
+  "midnight blue": ["midnight blue", "midnight"],
+  navy: ["navy"],
+  purple: ["purple"],
+  amethyst: ["amethyst"],
+  violet: ["violet"],
+  nebula: ["nebula"],
+  magenta: ["magenta"],
+  pink: ["pink"],
+  "pink diamond": ["pink diamond"],
+  "pink sapphire": ["pink sapphire"],
+  rose: ["rose"],
+  black: ["black"],
+  jet: ["jet"],
+  silver: ["silver"],
+  gray: ["gray", "grey"],
+  white: ["white"],
+  ivory: ["ivory"],
+  clear: ["clear", "transparent"],
+};
+
+/** Conflicting color words that disqualify an Amazon title for a given family. */
+const FAMILY_CONFLICT_WORDS: Record<HueFamily, string[]> = {
+  red: ["blue", "navy", "green", "purple", "violet", "teal", "pink", "yellow", "orange"],
+  orange: ["blue", "navy", "green", "purple", "pink", "teal"],
+  yellow: ["blue", "navy", "purple", "pink", "red", "green"],
+  green: ["blue", "navy", "purple", "pink", "red", "magenta", "violet"],
+  teal: ["purple", "pink", "red", "magenta", "orange", "yellow"],
+  blue: ["purple", "violet", "amethyst", "pink", "magenta", "red", "orange", "green", "yellow"],
+  purple: ["navy", "blue", "sky", "sapphire", "teal", "green", "orange", "yellow", "red"],
+  pink: ["blue", "navy", "green", "teal", "orange", "yellow"],
+  brown: ["blue", "navy", "purple", "pink", "green", "teal"],
+  neutral: [],
+};
 
 const ART_SLEEVE_FALLBACK = "B0DM939C7L";
 
@@ -210,59 +306,83 @@ function colorDistance(a: string, b: string): number {
   return deltaE2000(a, b);
 }
 
-/** Extra penalty when saturated hues disagree (stops teal beating green, etc.). */
-function hueMismatchPenalty(target: string, candidate: string): number {
-  const t = hexToHsl(target);
-  const c = hexToHsl(candidate);
-  if (t.s < 0.18 || c.s < 0.18) {
-    // Near-neutrals: lightness mismatch matters more
-    return Math.abs(t.l - c.l) * 48;
-  }
-  let dh = Math.abs(t.h - c.h);
-  if (dh > 180) dh = 360 - dh;
-  // Stronger hue gate: ~15° free, then steep climb so wrong families lose
-  if (dh < 12) return dh * 0.4;
-  if (dh < 28) return 6 + (dh - 12) * 2.2;
-  if (dh < 50) return 42 + (dh - 28) * 2.8;
-  return 105 + (dh - 50) * 2.2;
+function hueFamilyFromHex(hex: string): HueFamily {
+  const { h, s, l } = hexToHsl(hex);
+  if (s < 0.12 || l < 0.08 || l > 0.92) return "neutral";
+  if (h < 15 || h >= 345) return "red";
+  if (h < 40) return "orange";
+  if (h < 70) return "yellow";
+  if (h < 155) return "green";
+  if (h < 195) return "teal";
+  if (h < 255) return "blue";
+  if (h < 295) return "purple";
+  if (h < 335) return "pink";
+  return "red";
 }
 
-/** Perceptual distance used for catalog ranking (ΔE2000 + hue gate). */
-function perceptualColorCost(target: string, candidate: string): number {
-  return colorDistance(target, candidate) * 4 + hueMismatchPenalty(target, candidate);
+/** Adjacent families allowed only when ΔE is extremely close. */
+function familiesCompatible(a: HueFamily, b: HueFamily): boolean {
+  if (a === b) return true;
+  if (a === "neutral" || b === "neutral") return true;
+  const adj: Record<HueFamily, HueFamily[]> = {
+    red: ["orange", "pink", "brown"],
+    orange: ["red", "yellow", "brown"],
+    yellow: ["orange", "green"],
+    green: ["yellow", "teal"],
+    teal: ["green", "blue"],
+    blue: ["teal", "purple"],
+    purple: ["blue", "pink"],
+    pink: ["purple", "red"],
+    brown: ["orange", "red"],
+    neutral: [],
+  };
+  return adj[a]?.includes(b) ?? false;
 }
 
 /**
- * Map hex → sleeve color names. Primary is the nearest matte catalog color
- * (CIEDE2000 + hue penalty); optional 2nd/3rd names are close runners-up in-family.
+ * Map hex → sleeve color names. Primary is the nearest matte catalog color by
+ * CIEDE2000; at most one synonym (runner-up) when nearly tied in the same family.
  */
 export function colorNamesFromHex(hex: string): string[] {
+  const targetFamily = hueFamilyFromHex(hex);
   const matte = SLEEVE_CATALOG.filter((e) => !e.art && !e.name.startsWith("Budget"));
+
   const ranked = matte
-    .map((e) => ({ name: e.name, cost: perceptualColorCost(hex, e.hex), hex: e.hex }))
-    .sort((a, b) => a.cost - b.cost);
+    .map((e) => ({
+      name: e.name,
+      hex: e.hex,
+      family: e.family,
+      dE: colorDistance(hex, e.hex),
+    }))
+    .filter((e) => {
+      if (e.family === targetFamily) return true;
+      if (targetFamily === "neutral" || e.family === "neutral") return true;
+      return e.dE < 6 && familiesCompatible(targetFamily, e.family);
+    })
+    .sort((a, b) => a.dE - b.dE);
 
-  if (!ranked.length) return ["Black"];
+  const pool =
+    ranked.length > 0
+      ? ranked
+      : matte
+          .map((e) => ({
+            name: e.name,
+            hex: e.hex,
+            family: e.family,
+            dE: colorDistance(hex, e.hex),
+          }))
+          .sort((a, b) => a.dE - b.dE);
 
-  const primary = ranked[0];
+  if (!pool.length) return ["Black"];
+
+  const primary = pool[0];
   const names = [primary.name];
-  const primaryHsl = hexToHsl(primary.hex);
-
-  for (const cand of ranked.slice(1)) {
-    if (names.length >= 3) break;
-    // Only add a runner-up if it's still close and not a wild hue jump
-    if (cand.cost > primary.cost + 55) break;
-    const dh = (() => {
-      let d = Math.abs(hexToHsl(cand.hex).h - primaryHsl.h);
-      if (d > 180) d = 360 - d;
-      return d;
-    })();
-    const bothNeutral = hexToHsl(cand.hex).s < 0.15 && primaryHsl.s < 0.15;
-    if (!bothNeutral && dh > 38) continue;
-    if (!names.includes(cand.name)) names.push(cand.name);
+  // Optional single synonym only on a near-tie in the same hue family
+  const runner = pool[1];
+  if (runner && runner.family === primary.family && runner.dE <= primary.dE + 2.5) {
+    names.push(runner.name);
   }
-
-  return names;
+  return names.slice(0, 2);
 }
 
 export function hexToHueName(hex: string): HueName {
@@ -286,18 +406,26 @@ function isPremiumBrand(text: string): boolean {
   return PREMIUM_SLEEVE_BRANDS.some((b) => t.includes(b));
 }
 
-function nameMatchScore(title: string, colorNames: string[]): number {
+function synonymsForColor(colorName: string): string[] {
+  const key = colorName.toLowerCase();
+  return COLOR_SYNONYMS[key] ?? [key];
+}
+
+function titleHasColorSynonym(title: string, colorName: string): boolean {
   const t = title.toLowerCase();
-  let best = 0;
-  for (const name of colorNames) {
-    const n = name.toLowerCase();
-    if (t.includes(n)) best = Math.max(best, 50 + n.length * 2);
-    else {
-      const parts = n.split(/\s+/);
-      if (parts.every((p) => t.includes(p))) best = Math.max(best, 32);
-    }
+  return synonymsForColor(colorName).some((s) => t.includes(s));
+}
+
+function titleHasConflictingColor(title: string, family: HueFamily, colorName: string): boolean {
+  const t = title.toLowerCase();
+  const allowed = new Set(synonymsForColor(colorName).map((s) => s.toLowerCase()));
+  for (const word of FAMILY_CONFLICT_WORDS[family] ?? []) {
+    if (allowed.has(word)) continue;
+    // Word-boundary-ish: avoid matching "red" inside "hundred"
+    const re = new RegExp(`(?:^|[^a-z])${word}(?:[^a-z]|$)`, "i");
+    if (re.test(t)) return true;
   }
-  return best;
+  return false;
 }
 
 type ScoredSleeve = {
@@ -306,204 +434,11 @@ type ScoredSleeve = {
   url: string;
   matchHex: string;
   colorName: string;
+  dE: number;
+  family: HueFamily;
   score: number;
   source: "catalog" | "amazon";
 };
-
-function scoreCatalogEntry(
-  entry: SleeveCatalogEntry,
-  hex: string,
-  colorNames: string[],
-  premium: boolean,
-  art: "any" | "art" | "basic",
-): ScoredSleeve {
-  const dE = colorDistance(hex, entry.hex);
-  const huePen = hueMismatchPenalty(hex, entry.hex);
-  // Color accuracy dominates (~0–220). ΔE≈0 → ~220; wrong hue collapses fast
-  let score = 220 - dE * 4 - huePen;
-
-  score += nameMatchScore(`${entry.brand} ${entry.name}`, colorNames);
-
-  // Soft premium preference — must not overturn a clearly better color (±8–12 vs hue swings of 40+)
-  const entryPremium = Boolean(entry.premium || isPremiumBrand(entry.brand));
-  if (premium) {
-    if (entryPremium) score += 10;
-    else score -= 4;
-  } else {
-    if (!entryPremium) score += 10;
-    else score -= 5;
-  }
-
-  // Soft art preference — never hard-filter; keep well below a solid hue win
-  if (art === "art") score += entry.art ? 36 : -18;
-  else if (art === "basic") score += entry.art ? -30 : 16;
-
-  const displayTitle = entry.art
-    ? `${entry.brand}: ${entry.name} (Art / dual art)`
-    : premium || entryPremium
-      ? `${entry.brand}: ${entry.name} Matte`
-      : `Matte card sleeves: ${entry.name}`;
-
-  return {
-    title: displayTitle,
-    asin: entry.asin,
-    url: amazonProductUrl(entry.asin),
-    matchHex: entry.hex,
-    colorName: entry.name,
-    score,
-    source: "catalog",
-  };
-}
-
-function parseAmazonSearchHtml(html: string): { title: string; asin: string }[] {
-  const found = new Map<string, string>();
-  const asinRe = /data-asin="([A-Z0-9]{10})"/gi;
-  let m: RegExpExecArray | null;
-  while ((m = asinRe.exec(html)) !== null) {
-    const asin = m[1];
-    if (found.has(asin)) continue;
-    // Look nearby for a title
-    const slice = html.slice(Math.max(0, m.index - 200), m.index + 1200);
-    const titleMatch =
-      slice.match(/aria-label="([^"]{8,160})"/i) ||
-      slice.match(/<span[^>]*class="[^"]*a-text-normal[^"]*"[^>]*>([^<]{8,160})<\/span>/i) ||
-      slice.match(/alt="([^"]{8,160})"/i);
-    const title = titleMatch?.[1]?.replace(/&amp;/g, "&").replace(/&#39;/g, "'").trim();
-    if (title && /sleeve/i.test(title)) found.set(asin, title);
-    else if (title) found.set(asin, title);
-  }
-
-  // Also catch /dp/ASIN links with titles
-  const dpRe = /\/dp\/([A-Z0-9]{10})/gi;
-  while ((m = dpRe.exec(html)) !== null) {
-    if (found.has(m[1])) continue;
-    const slice = html.slice(Math.max(0, m.index - 400), m.index + 200);
-    const titleMatch = slice.match(/alt="([^"]{8,160})"/i);
-    if (titleMatch) found.set(m[1], titleMatch[1].replace(/&amp;/g, "&").trim());
-  }
-
-  return [...found.entries()].slice(0, 24).map(([asin, title]) => ({ asin, title }));
-}
-
-async function fetchViaCorsProxy(url: string): Promise<string | null> {
-  const proxies = [
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    `https://corsproxy.io/?${encodeURIComponent(url)}`,
-  ];
-  for (const proxy of proxies) {
-    try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 6000);
-      const res = await fetch(proxy, { signal: ctrl.signal });
-      clearTimeout(timer);
-      if (!res.ok) continue;
-      const text = await res.text();
-      if (text && text.length > 500) return text;
-    } catch {
-      /* try next proxy */
-    }
-  }
-  return null;
-}
-
-async function searchAmazonSleeves(
-  hex: string,
-  colorNames: string[],
-  premium: boolean,
-  art: "any" | "art" | "basic",
-): Promise<ScoredSleeve[]> {
-  const primary = colorNames[0] ?? "black";
-  const secondary = colorNames[1] ?? primary;
-  const queries: string[] = [];
-
-  if (art === "art") {
-    if (premium) {
-      queries.push(`Dragon Shield dual art sleeves ${primary}`);
-      queries.push(`Dragon Shield art sleeves ${primary}`);
-      queries.push(`Ultimate Guard art sleeves ${primary}`);
-    } else {
-      queries.push(`art card sleeves ${primary} dual`);
-      queries.push(`illustrated card sleeves ${primary}`);
-    }
-  } else if (art === "basic") {
-    if (premium) {
-      queries.push(`Dragon Shield Matte ${primary}`);
-      queries.push(`Ultimate Guard Supreme ${primary} matte sleeves`);
-    } else {
-      queries.push(`matte card sleeves ${primary} solid color`);
-      queries.push(`budget matte card sleeves ${primary}`);
-    }
-  } else if (premium) {
-    queries.push(`Dragon Shield Matte ${primary}`);
-    queries.push(`Ultimate Guard Supreme ${primary} sleeves`);
-  } else {
-    queries.push(`card sleeves ${primary} matte`);
-    queries.push(`budget card sleeves ${primary}`);
-  }
-
-  queries.push(
-    art === "art"
-      ? `Dragon Shield art ${secondary}`
-      : `Dragon Shield Matte ${secondary}`,
-  );
-
-  const scored: ScoredSleeve[] = [];
-  const seen = new Set<string>();
-
-  // Limit live fetches to keep latency reasonable
-  for (const q of queries.slice(0, 2)) {
-    const html = await fetchViaCorsProxy(amazonSearchUrl(q));
-    if (!html) continue;
-    for (const hit of parseAmazonSearchHtml(html)) {
-      if (seen.has(hit.asin)) continue;
-      seen.add(hit.asin);
-      const titleLower = hit.title.toLowerCase();
-      if (!/sleeve|dragon shield|ultimate guard|katana|gamegenic/.test(titleLower)) continue;
-
-      let score = 30 + nameMatchScore(hit.title, colorNames);
-      // Modest brand preference
-      if (premium && isPremiumBrand(hit.title)) score += 12;
-      else if (premium && !isPremiumBrand(hit.title)) score -= 4;
-      else if (!premium && !isPremiumBrand(hit.title)) score += 10;
-      else if (!premium && isPremiumBrand(hit.title)) score -= 4;
-
-      const looksArt = /art|dual art|illustrated|artwork/.test(titleLower);
-      const looksMatte = /matte|solid|opaque/.test(titleLower);
-      if (art === "art") {
-        if (looksArt) score += 36;
-        else score -= 18;
-      } else if (art === "basic") {
-        if (looksArt) score -= 28;
-        else if (looksMatte) score += 14;
-      } else if (looksMatte) {
-        score += 6;
-      }
-
-      // Infer color from title → catalog; penalize hue drift from the user's pick
-      const catalogHit =
-        SLEEVE_CATALOG.find((e) =>
-          colorNames.some((n) => e.name.toLowerCase() === n.toLowerCase() && Boolean(e.art) === looksArt),
-        ) ??
-        SLEEVE_CATALOG.find((e) => colorNames.some((n) => e.name.toLowerCase() === n.toLowerCase())) ??
-        SLEEVE_CATALOG.find((e) => titleLower.includes(e.name.toLowerCase()) && !e.art);
-
-      const matchHex = catalogHit?.hex ?? "#888888";
-      score -= perceptualColorCost(hex, matchHex) * 0.45;
-
-      scored.push({
-        title: hit.title,
-        asin: hit.asin,
-        url: amazonProductUrl(hit.asin),
-        matchHex,
-        colorName: catalogHit?.name ?? primary,
-        score,
-        source: "amazon",
-      });
-    }
-  }
-
-  return scored;
-}
 
 export type SleeveMatchResult = {
   colorNames: string[];
@@ -521,11 +456,280 @@ export type SleeveMatchStage = "naming" | "catalog" | "amazon" | "done";
 
 export type SleeveMatchProgress = (stage: SleeveMatchStage, label: string) => void;
 
+function scoreCatalogEntry(
+  entry: SleeveCatalogEntry,
+  hex: string,
+  targetFamily: HueFamily,
+  premium: boolean,
+  art: "any" | "art" | "basic",
+): ScoredSleeve | null {
+  const dE = colorDistance(hex, entry.hex);
+
+  // Hard hue-family gate: never return a different family unless ΔE is tiny
+  if (entry.family !== targetFamily) {
+    const bothNeutral = targetFamily === "neutral" || entry.family === "neutral";
+    if (!bothNeutral && dE > 8) return null;
+    if (!bothNeutral && !familiesCompatible(targetFamily, entry.family) && dE > 5) return null;
+  }
+
+  // Color accuracy dominates. Soft prefs must lose to a clearly better ΔE (~15+)
+  let score = 400 - dE * 12;
+
+  const entryPremium = Boolean(entry.premium || isPremiumBrand(entry.brand));
+  // Soft premium: ±8 — a ΔE gap of ~1 already outweighs this; 15 ΔE ≫ premium
+  if (premium) {
+    if (entryPremium) score += 8;
+    else score -= 3;
+  } else {
+    if (!entryPremium) score += 8;
+    else score -= 4;
+  }
+
+  // Soft art preference
+  if (art === "art") score += entry.art ? 28 : -14;
+  else if (art === "basic") score += entry.art ? -24 : 12;
+
+  const displayTitle = entry.art
+    ? `${entry.brand}: ${entry.name} (Art / dual art)`
+    : premium || entryPremium
+      ? `${entry.brand}: ${entry.name} Matte`
+      : `Matte card sleeves: ${entry.name}`;
+
+  return {
+    title: displayTitle,
+    asin: entry.asin,
+    url: amazonProductUrl(entry.asin),
+    matchHex: entry.hex,
+    colorName: entry.name.replace(/^Budget\s+/i, "").replace(/^Art\s+/i, "") || entry.name,
+    dE,
+    family: entry.family,
+    score,
+    source: "catalog",
+  };
+}
+
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, "&")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .trim();
+}
+
+/** Parse ASINs + titles from Amazon HTML via regex only (never inject HTML into the DOM). */
+function parseAmazonSearchHtml(html: string): { title: string; asin: string }[] {
+  const found = new Map<string, string>();
+  const asinRe = /data-asin="([A-Z0-9]{10})"/gi;
+  let m: RegExpExecArray | null;
+  while ((m = asinRe.exec(html)) !== null) {
+    const asin = m[1];
+    if (found.has(asin)) continue;
+    const slice = html.slice(Math.max(0, m.index - 200), m.index + 1400);
+    const titleMatch =
+      slice.match(/aria-label="([^"]{8,180})"/i) ||
+      slice.match(/<span[^>]*class="[^"]*a-text-normal[^"]*"[^>]*>([^<]{8,180})<\/span>/i) ||
+      slice.match(/alt="([^"]{8,180})"/i);
+    const title = titleMatch?.[1] ? decodeHtmlEntities(titleMatch[1]) : "";
+    if (title) found.set(asin, title);
+  }
+
+  const dpRe = /\/dp\/([A-Z0-9]{10})/gi;
+  while ((m = dpRe.exec(html)) !== null) {
+    if (found.has(m[1])) continue;
+    const slice = html.slice(Math.max(0, m.index - 400), m.index + 200);
+    const titleMatch = slice.match(/alt="([^"]{8,180})"/i);
+    if (titleMatch) found.set(m[1], decodeHtmlEntities(titleMatch[1]));
+  }
+
+  return [...found.entries()].slice(0, 48).map(([asin, title]) => ({ asin, title }));
+}
+
+async function fetchViaCorsProxy(url: string): Promise<string | null> {
+  const proxies = [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  ];
+  for (const proxy of proxies) {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000);
+      const res = await fetch(proxy, { signal: ctrl.signal });
+      clearTimeout(timer);
+      if (!res.ok) continue;
+      const text = await res.text();
+      // Text only — callers must regex-parse; never assign to innerHTML
+      if (text && text.length > 500) return text;
+    } catch {
+      /* try next proxy */
+    }
+  }
+  return null;
+}
+
+function buildSleeveSearchQueries(
+  colorName: string,
+  premium: boolean,
+  art: "any" | "art" | "basic",
+): string[] {
+  const queries: string[] = [];
+  if (art === "art") {
+    queries.push(`Dragon Shield dual art sleeves ${colorName}`);
+    queries.push(`Dragon Shield art sleeves ${colorName}`);
+    queries.push(`Ultimate Guard art sleeves ${colorName}`);
+    queries.push(`illustrated card sleeves ${colorName}`);
+  } else {
+    queries.push(`Dragon Shield Matte ${colorName}`);
+    queries.push(`Dragon Shield ${colorName} sleeves 100`);
+    queries.push(`card sleeves ${colorName} matte 100`);
+    queries.push(`Ultimate Guard ${colorName} sleeves`);
+    queries.push(`Ultimate Guard Supreme ${colorName} matte sleeves`);
+    queries.push(`Katana sleeves ${colorName} matte`);
+    if (!premium) {
+      queries.push(`budget matte card sleeves ${colorName}`);
+      queries.push(`matte card sleeves ${colorName} solid color`);
+    } else {
+      queries.push(`Gamegenic ${colorName} matte sleeves`);
+    }
+    if (art === "basic") {
+      queries.push(`solid color matte sleeves ${colorName} opaque`);
+    }
+  }
+  return queries;
+}
+
+function scoreAmazonSleeveTitle(
+  title: string,
+  colorName: string,
+  family: HueFamily,
+  premium: boolean,
+  art: "any" | "art" | "basic",
+): number | null {
+  const titleLower = title.toLowerCase();
+  if (!/sleeve|dragon shield|ultimate guard|katana|gamegenic/.test(titleLower)) return null;
+
+  const exactColor = titleLower.includes(colorName.toLowerCase());
+  const synHit = titleHasColorSynonym(title, colorName);
+  if (!exactColor && !synHit) return null;
+  if (titleHasConflictingColor(title, family, colorName)) return null;
+
+  let score = 50;
+  if (exactColor) score += 55;
+  else if (synHit) score += 28;
+
+  if (/dragon shield/.test(titleLower)) score += 22;
+  else if (/ultimate guard/.test(titleLower)) score += 18;
+  else if (/katana/.test(titleLower)) score += 14;
+  else if (/gamegenic/.test(titleLower)) score += 10;
+  if (/sleeve/.test(titleLower)) score += 12;
+  if (/matte/.test(titleLower)) score += 10;
+  if (/\b100\b/.test(titleLower)) score += 4;
+
+  if (premium && isPremiumBrand(title)) score += 16;
+  else if (premium && !isPremiumBrand(title)) score -= 8;
+  else if (!premium && !isPremiumBrand(title)) score += 12;
+  else if (!premium && isPremiumBrand(title)) score -= 4;
+
+  const looksArt = /art|dual art|illustrated|artwork/.test(titleLower);
+  const looksMatte = /matte|solid|opaque/.test(titleLower);
+  if (art === "art") {
+    if (looksArt) score += 30;
+    else score -= 18;
+  } else if (art === "basic") {
+    if (looksArt) score -= 28;
+    else if (looksMatte) score += 16;
+  }
+
+  return score;
+}
+
+async function searchAmazonSleeves(
+  hex: string,
+  colorNames: string[],
+  family: HueFamily,
+  premium: boolean,
+  art: "any" | "art" | "basic",
+  onProgress?: SleeveMatchProgress,
+): Promise<ScoredSleeve[]> {
+  const scored: ScoredSleeve[] = [];
+  const seen = new Set<string>();
+  const primary = colorNames[0] ?? "Black";
+  const querySet = new Set<string>();
+  for (const colorName of colorNames.slice(0, 2)) {
+    for (const q of buildSleeveSearchQueries(colorName, premium, art)) {
+      querySet.add(q);
+    }
+  }
+  const queries = [...querySet].slice(0, 8);
+  let fetched = 0;
+
+  for (const q of queries) {
+    onProgress?.(
+      "amazon",
+      `Searching Amazon (${fetched + 1}/${queries.length})…`,
+    );
+    const html = await fetchViaCorsProxy(amazonSearchUrl(q));
+    fetched += 1;
+    if (!html) continue;
+    for (const hit of parseAmazonSearchHtml(html)) {
+      if (seen.has(hit.asin)) continue;
+      seen.add(hit.asin);
+
+      let bestForHit: { colorName: string; score: number } | null = null;
+      for (const colorName of colorNames.slice(0, 2)) {
+        const score = scoreAmazonSleeveTitle(hit.title, colorName, family, premium, art);
+        if (score == null) continue;
+        if (!bestForHit || score > bestForHit.score) {
+          bestForHit = { colorName, score };
+        }
+      }
+      if (!bestForHit) continue;
+
+      const titleLower = hit.title.toLowerCase();
+      const looksArt = /art|dual art|illustrated|artwork/.test(titleLower);
+      const catalogHit =
+        SLEEVE_CATALOG.find(
+          (e) =>
+            e.name.toLowerCase() === bestForHit!.colorName.toLowerCase() &&
+            Boolean(e.art) === looksArt,
+        ) ??
+        SLEEVE_CATALOG.find((e) => e.name.toLowerCase() === bestForHit!.colorName.toLowerCase()) ??
+        SLEEVE_CATALOG.find((e) => titleLower.includes(e.name.toLowerCase()) && !e.art);
+
+      const matchHex = catalogHit?.hex ?? hex;
+      const dE = colorDistance(hex, matchHex);
+      // Soft ΔE nudge; title color agreement already dominates
+      const score = bestForHit.score - dE * 2;
+
+      scored.push({
+        title: hit.title,
+        asin: hit.asin,
+        url: amazonProductUrl(hit.asin),
+        matchHex,
+        colorName: catalogHit?.name ?? bestForHit.colorName,
+        dE,
+        family: catalogHit?.family ?? family,
+        score,
+        source: "amazon",
+      });
+    }
+  }
+
+  // Prefer primary color name for ranking when scores are close
+  for (const s of scored) {
+    if (s.colorName.toLowerCase() === primary.toLowerCase()) s.score += 6;
+  }
+
+  return scored;
+}
+
 /**
  * Match a picked color to sleeve products:
- * 1) Derive color-name candidates from HSL
- * 2) Score curated catalog (CIEDE2000 + hue penalty + soft premium/art prefs)
- * 3) Optionally enrich via Amazon search through a CORS proxy
+ * 1) Hex → 1 primary color name (+ optional synonym)
+ * 2) Many Amazon search queries; score titles (color agreement + brand + prefs)
+ * 3) Catalog ΔE match only as backup when Amazon fetch fails entirely
  */
 export async function matchSleeveColor(
   hex: string,
@@ -536,39 +740,42 @@ export async function matchSleeveColor(
   onProgress?.("naming", "Naming color…");
   const colorNames = colorNamesFromHex(hex);
   const hue = hexToHueName(hex);
+  const targetFamily = hueFamilyFromHex(hex);
 
-  onProgress?.("catalog", "Scoring sleeve catalog…");
-  // Score full catalog: art/basic/premium are soft preferences, not hard filters
-  const catalogScored = SLEEVE_CATALOG.map((e) =>
-    scoreCatalogEntry(e, hex, colorNames, premium, art),
-  );
-
-  onProgress?.("amazon", "Checking Amazon…");
+  onProgress?.("amazon", "Searching Amazon…");
   let amazonScored: ScoredSleeve[] = [];
   try {
-    amazonScored = await searchAmazonSleeves(hex, colorNames, premium, art);
+    amazonScored = await searchAmazonSleeves(
+      hex,
+      colorNames,
+      targetFamily,
+      premium,
+      art,
+      onProgress,
+    );
   } catch {
     amazonScored = [];
   }
 
-  const bestCatalog = [...catalogScored].sort((a, b) => b.score - a.score)[0];
-  const bestAmazon = [...amazonScored].sort((a, b) => b.score - a.score)[0];
+  onProgress?.("catalog", "Scoring sleeve catalog…");
+  const catalogScored = SLEEVE_CATALOG.map((e) =>
+    scoreCatalogEntry(e, hex, targetFamily, premium, art),
+  ).filter((s): s is ScoredSleeve => s != null);
 
-  // Prefer opening the best catalog color match. Amazon may only win when it
-  // clearly beats catalog AND stays within a reasonable hue of the pick.
-  let best = bestCatalog;
-  if (bestAmazon && bestCatalog) {
-    const amazonHueCost = perceptualColorCost(hex, bestAmazon.matchHex);
-    const catalogHueCost = perceptualColorCost(hex, bestCatalog.matchHex);
-    const amazonHueOk = amazonHueCost <= catalogHueCost + 28;
-    if (amazonHueOk && bestAmazon.score >= bestCatalog.score + 35) {
-      best = bestAmazon;
-    }
-  } else if (bestAmazon && !bestCatalog) {
-    best = bestAmazon;
+  const bestAmazon = [...amazonScored].sort((a, b) => b.score - a.score)[0];
+  const bestCatalog = [...catalogScored].sort((a, b) => b.score - a.score)[0];
+
+  // Amazon-first when we got live hits; catalog is backup only
+  let best = bestAmazon ?? bestCatalog;
+
+  if (best && best.source === "catalog" && bestCatalog) {
+    const clearer = catalogScored
+      .filter((c) => c.dE + 15 < best!.dE && c.family === best!.family)
+      .sort((a, b) => a.dE - b.dE)[0];
+    if (clearer) best = clearer;
   }
 
-  const all = [...catalogScored, ...amazonScored].sort((a, b) => b.score - a.score);
+  const all = [...amazonScored, ...catalogScored].sort((a, b) => b.score - a.score);
 
   if (!best) {
     const fallback =
@@ -579,6 +786,8 @@ export async function matchSleeveColor(
       url: amazonProductUrl(art === "art" ? ART_SLEEVE_FALLBACK : fallback.asin),
       matchHex: fallback.hex,
       colorName: fallback.name,
+      dE: colorDistance(hex, fallback.hex),
+      family: fallback.family,
       score: 0,
       source: "catalog",
     };
@@ -595,7 +804,11 @@ export async function matchSleeveColor(
     matchHex: best.matchHex,
     hue,
     source: best.source,
-    candidates: all.slice(0, 5).map((c) => ({ title: c.title, score: Math.round(c.score), source: c.source })),
+    candidates: all.slice(0, 8).map((c) => ({
+      title: c.title,
+      score: Math.round(c.score),
+      source: c.source,
+    })),
   };
 }
 
@@ -614,21 +827,26 @@ export function sleeveQueryFor(
 } {
   const colorNames = colorNamesFromHex(hex);
   const hue = hexToHueName(hex);
-  const ranked = SLEEVE_CATALOG.map((e) => scoreCatalogEntry(e, hex, colorNames, premium, art)).sort(
-    (a, b) => b.score - a.score,
-  );
+  const targetFamily = hueFamilyFromHex(hex);
+  const ranked = SLEEVE_CATALOG.map((e) =>
+    scoreCatalogEntry(e, hex, targetFamily, premium, art),
+  )
+    .filter((s): s is ScoredSleeve => s != null)
+    .sort((a, b) => b.score - a.score);
   const best = ranked[0] ?? {
     title: premium ? "Dragon Shield Matte: Black" : "Matte card sleeves: Black",
     asin: "B00WX57O7M",
     url: amazonProductUrl("B00WX57O7M"),
     matchHex: "#212121",
     colorName: "Black",
+    dE: 0,
+    family: "neutral" as HueFamily,
     score: 0,
     source: "catalog" as const,
   };
   return {
     hue,
-    colorName: best.colorName,
+    colorName: best.colorName || colorNames[0] || "Black",
     title: best.title,
     asin: best.asin,
     url: best.url,

@@ -1,5 +1,10 @@
 import type { ScryfallCard } from "./scryfall";
-import { searchPrintingsForPimp } from "./scryfall";
+import {
+  isRetryableScryfallError,
+  isScryfallRateLimit,
+  isTransientNetworkError,
+  searchPrintingsForPimp,
+} from "./scryfall";
 import { parseMoxfieldList, toMoxfieldList, type DeckLine } from "./moxfield";
 
 /** Sets that are special product lines (not regular Standard/Commander print runs). */
@@ -360,14 +365,25 @@ export async function pimpDeckList(
         notes.push(`${line.name}: ${best.set_name} #${best.collector_number}`);
       }
     } catch (err) {
-      // searchPrintingsForPimp is non-throwing; this is for unexpected failures only
       out.push(line);
-      const detail = err instanceof Error ? err.message.replace(/\s+/g, " ").slice(0, 80) : "";
-      notes.push(
-        detail
-          ? `Kept original: ${line.name} (${detail})`
-          : `Kept original: ${line.name} (lookup failed)`,
-      );
+      if (isScryfallRateLimit(err)) {
+        notes.push(`Kept original: ${line.name} (rate limited, try again)`);
+        await new Promise((r) => setTimeout(r, 1500));
+      } else if (isTransientNetworkError(err) || isRetryableScryfallError(err)) {
+        notes.push(`Kept original: ${line.name} (network error, try again)`);
+        await new Promise((r) => setTimeout(r, 800));
+      } else {
+        const detail = err instanceof Error ? err.message.replace(/\s+/g, " ").slice(0, 80) : "";
+        const networkish =
+          /network error|failed to fetch|typeerror/i.test(detail) || detail === "network error, try again";
+        notes.push(
+          networkish
+            ? `Kept original: ${line.name} (network error, try again)`
+            : detail
+              ? `Kept original: ${line.name} (${detail})`
+              : `Kept original: ${line.name} (lookup failed)`,
+        );
+      }
     }
     onProgress?.(i + 1, total);
   }

@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
 import {
   matchSleeveColor,
@@ -7,9 +8,9 @@ import {
 } from "../lib/amazon";
 
 const STAGE_PCT: Record<SleeveMatchStage, number> = {
-  naming: 15,
-  catalog: 45,
-  amazon: 75,
+  naming: 10,
+  amazon: 70,
+  catalog: 90,
   done: 100,
 };
 
@@ -50,11 +51,16 @@ export function SleeveColorPage() {
 
   return (
     <div className="tool-page container">
+      <Seo
+        title="Sleeve Color Matcher"
+        description="Pick a color and find matching Dragon Shield, Ultimate Guard, and other Magic card sleeves on Amazon."
+        path="/sleeves"
+      />
       <header className="tool-header">
         <h1>Sleeve color matcher</h1>
         <p>
-          Pick a color. We derive sleeve color names from it, score curated brands (and live Amazon
-          search when available), and open the best-matching product.
+          Pick a color. We name it, search many Amazon sleeve listings, score titles for color
+          agreement, and fall back to a curated catalog if live search fails.
         </p>
       </header>
 
@@ -152,7 +158,7 @@ export function SleeveColorPage() {
                 </div>
               </div>
               <p style={{ marginTop: "1rem" }}>{result.title}</p>
-              <a className="btn btn-brass" href={result.url} target="_blank" rel="noreferrer">
+              <a className="btn btn-brass" href={result.url} target="_blank" rel="noopener noreferrer">
                 Open product on Amazon
               </a>
             </>

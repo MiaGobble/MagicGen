@@ -3,13 +3,16 @@ import { Link, useSearchParams } from "react-router-dom";
 import { CommanderFilters, DEFAULT_FILTERS, type FilterState } from "../components/CommanderFilters";
 import { DeckActions } from "../components/DeckActions";
 import { ColorIdentity, ManaCost } from "../components/Mana";
-import { useToast } from "../components/Toast";
+import { Seo } from "../components/Seo";
+import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
 import { generateAverageDeck, edhrecUrl } from "../lib/edhrec";
 import {
   CARD_BACK_URL,
+  getCardFaceImages,
   getCardImage,
   getManaCost,
   getOracleText,
+  isMultiFaceCard,
   namedCard,
   randomCommander,
   type ScryfallCard,
@@ -21,6 +24,7 @@ export function RandomCommanderPage() {
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [card, setCard] = useState<ScryfallCard | null>(null);
   const [displaySrc, setDisplaySrc] = useState(CARD_BACK_URL);
+  const [faceIndex, setFaceIndex] = useState(0);
   const [flipping, setFlipping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -28,6 +32,9 @@ export function RandomCommanderPage() {
   const [deckSource, setDeckSource] = useState<string | null>(null);
   const [bracket, setBracket] = useState(Number(params.get("bracket") || 3));
   const [deckLoading, setDeckLoading] = useState(false);
+
+  const faceImages = card ? getCardFaceImages(card, "normal") : [];
+  const multiFace = card ? isMultiFaceCard(card) : false;
 
   useEffect(() => {
     const name = params.get("name");
@@ -39,6 +46,7 @@ export function RandomCommanderPage() {
         const c = await namedCard(name);
         if (cancelled) return;
         setCard(c);
+        setFaceIndex(0);
         setDisplaySrc(getCardImage(c, "normal"));
         if (params.get("autodeck") === "1") {
           const result = await generateAverageDeck(c, Number(params.get("bracket") || 3));
@@ -64,6 +72,7 @@ export function RandomCommanderPage() {
     setDisplaySrc(CARD_BACK_URL);
     await new Promise((r) => setTimeout(r, 280));
     setCard(next);
+    setFaceIndex(0);
     setDisplaySrc(getCardImage(next, "normal"));
     setFlipping(false);
   }
@@ -82,6 +91,8 @@ export function RandomCommanderPage() {
         partners: filters.partners,
       });
       await flipTo(next);
+      toast("Commander ready", "success");
+      maybeShowKofiSupportToast(toast);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to fetch commander";
       setError(msg.includes("no commanders") ? "no commanders within filters found" : msg);
@@ -99,6 +110,7 @@ export function RandomCommanderPage() {
       setDeck(result.list);
       setDeckSource(result.source);
       toast("Average deck ready", "success");
+      maybeShowKofiSupportToast(toast);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Deck generation failed");
       toast("Deck generation failed", "error");
@@ -107,8 +119,19 @@ export function RandomCommanderPage() {
     }
   }
 
+  function showFace(index: number) {
+    if (!card || !faceImages[index]) return;
+    setFaceIndex(index);
+    setDisplaySrc(faceImages[index].src);
+  }
+
   return (
     <div className="tool-page container">
+      <Seo
+        title="Random Commander"
+        description="Flip random Magic: The Gathering commanders with color and playstyle filters, then build an average EDHREC deck."
+        path="/commander"
+      />
       <header className="tool-header">
         <h1>Random commander</h1>
         <p>Keep flipping until something sparks a deck idea, then pull an average list from EDHREC.</p>
@@ -130,16 +153,34 @@ export function RandomCommanderPage() {
 
       <div className="split" style={{ marginTop: "1.5rem" }}>
         <div>
-          <div className="card-art" aria-live="polite">
-            <div className={`card-flip${flipping ? " is-flipping" : ""}`}>
-              <div className="card-face">
-                <img src={displaySrc} alt={card ? card.name : "Magic card back"} />
-              </div>
-              <div className="card-face card-face--back">
-                <img src={CARD_BACK_URL} alt="" />
+          {multiFace && faceImages.length >= 2 && !flipping ? (
+            <div className="dfc-faces" aria-live="polite">
+              {faceImages.map((face, i) => (
+                <button
+                  key={`${face.name}-${i}`}
+                  type="button"
+                  className={`dfc-face${faceIndex === i ? " is-active" : ""}`}
+                  onClick={() => showFace(i)}
+                  aria-pressed={faceIndex === i}
+                  aria-label={`Show ${face.name}`}
+                >
+                  <img src={face.src} alt={face.name} />
+                  <span className="dfc-face__label">{face.name}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="card-art" aria-live="polite">
+              <div className={`card-flip${flipping ? " is-flipping" : ""}`}>
+                <div className="card-face">
+                  <img src={displaySrc} alt={card ? card.name : "Magic card back"} />
+                </div>
+                <div className="card-face card-face--back">
+                  <img src={CARD_BACK_URL} alt="" />
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="panel panel-strong">
@@ -153,12 +194,23 @@ export function RandomCommanderPage() {
               <p className="muted" style={{ whiteSpace: "pre-wrap" }}>
                 {getOracleText(card)}
               </p>
+              {multiFace && faceImages.length >= 2 && (
+                <div className="actions">
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => showFace((faceIndex + 1) % faceImages.length)}
+                  >
+                    Show {faceImages[(faceIndex + 1) % faceImages.length]?.name ?? "other face"}
+                  </button>
+                </div>
+              )}
               <div className="actions">
                 <a
                   className="btn btn-secondary"
                   href={edhrecUrl(card.name.split(" // ")[0])}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                 >
                   Open EDHREC
                 </a>
@@ -190,7 +242,7 @@ export function RandomCommanderPage() {
           <h2>Generated deck</h2>
           <p className="muted">
             Source: {deckSource}. Power metrics from{" "}
-            <a href="https://edhpowerlevel.com/" target="_blank" rel="noreferrer">
+            <a href="https://edhpowerlevel.com/" target="_blank" rel="noopener noreferrer">
               edhpowerlevel.com
             </a>{" "}
             are skipped (no public API).

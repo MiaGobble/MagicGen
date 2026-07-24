@@ -57,8 +57,62 @@ export const CARD_BACK_URL = "/card-back.svg";
 let lastRequest = 0;
 let throttleChain: Promise<void> = Promise.resolve();
 
-/** Scryfall asks ~50–100ms between requests; stay conservative for ~100-card decks. */
-const SCRYFALL_MIN_GAP_MS = 125;
+/**
+ * Scryfall soft-limits ~10 req/s; stay well under that for ~100-card decks
+ * (named + prints URI ≈ 2+ GETs per card).
+ */
+const SCRYFALL_MIN_GAP_MS = 140;
+
+const MAX_TRANSIENT_RETRIES = 5;
+
+/** Cap printings fetched for pimping — scoring does not need every printing. */
+const PIMP_MAX_PRINTS_NORMAL = 100;
+const PIMP_MAX_PRINTS_BASIC = 175;
+const PIMP_MAX_PAGES_NORMAL = 1;
+const PIMP_MAX_PAGES_BASIC = 2;
+
+export class ScryfallHttpError extends Error {
+  readonly status: number;
+  readonly body: string;
+
+  constructor(status: number, body: string) {
+    super(`Scryfall ${status}: ${body || "request failed"}`);
+    this.name = "ScryfallHttpError";
+    this.status = status;
+    this.body = body;
+  }
+
+  get isRateLimit() {
+    return this.status === 429;
+  }
+
+  get isNotFound() {
+    return this.status === 404;
+  }
+}
+
+export function isScryfallRateLimit(err: unknown): boolean {
+  return err instanceof ScryfallHttpError && err.isRateLimit;
+}
+
+/** Transient network / CORS / tab failures that should retry like 429. */
+export function isTransientNetworkError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  if (err.name === "AbortError") return false;
+  const msg = err.message.toLowerCase();
+  return (
+    err.name === "TypeError" ||
+    msg.includes("failed to fetch") ||
+    msg.includes("networkerror") ||
+    msg.includes("network request failed") ||
+    msg.includes("load failed") ||
+    msg.includes("fetch failed")
+  );
+}
+
+export function isRetryableScryfallError(err: unknown): boolean {
+  return isScryfallRateLimit(err) || isTransientNetworkError(err);
+}
 
 /** Serialize requests so parallel callers still respect Scryfall's rate limit. */
 async function throttle() {
@@ -73,36 +127,56 @@ async function throttle() {
   await run;
 }
 
+function buildScryfallHeaders(init?: RequestInit): Headers {
+  const headers = new Headers(init?.headers);
+  if (!headers.has("Accept")) headers.set("Accept", "application/json");
+  // Browsers forbid setting User-Agent (they send a real one — Scryfall wants that).
+  // Node/undici defaults to a generic UA that Scryfall rejects with 400.
+  const isBrowser = typeof navigator !== "undefined" && typeof window !== "undefined";
+  if (!isBrowser && !headers.has("User-Agent")) {
+    headers.set("User-Agent", "MagicGen/1.0 (https://github.com/MagicGen)");
+  }
+  return headers;
+}
+
 export async function scryfallFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const url = path.startsWith("http") ? path : `${BASE}${path}`;
   let attempt = 0;
   while (true) {
     await throttle();
-    const res = await fetch(url, {
-      ...init,
-      headers: {
-        Accept: "application/json",
-        // Scryfall rejects generic library UAs; browsers already send a real UA
-        // (forbidden header — ignored). Helps Node/tests and embedded runtimes.
-        "User-Agent": "MagicGen/1.0 (https://github.com/MagicGen)",
-        ...(init?.headers ?? {}),
-      },
-    });
-    if (res.status === 429 && attempt < 5) {
-      attempt += 1;
-      const retryAfterHeader = res.headers.get("Retry-After");
-      const retryAfterSec = retryAfterHeader ? Number(retryAfterHeader) : NaN;
-      const fromHeader = Number.isFinite(retryAfterSec) ? retryAfterSec * 1000 : 0;
-      // Backoff: honor Retry-After, else 1s · 2s · 4s… (capped)
-      const backoff = fromHeader > 0 ? fromHeader : Math.min(8000, 1000 * 2 ** (attempt - 1));
-      await new Promise((r) => setTimeout(r, backoff));
-      continue;
+    try {
+      const res = await fetch(url, {
+        ...init,
+        headers: buildScryfallHeaders(init),
+      });
+      if (res.status === 429 && attempt < MAX_TRANSIENT_RETRIES) {
+        attempt += 1;
+        const retryAfterHeader = res.headers.get("Retry-After");
+        const retryAfterSec = retryAfterHeader ? Number(retryAfterHeader) : NaN;
+        const fromHeader = Number.isFinite(retryAfterSec) ? retryAfterSec * 1000 : 0;
+        // Backoff: honor Retry-After, else 1s · 2s · 4s… (capped)
+        const backoff = fromHeader > 0 ? fromHeader : Math.min(10000, 1000 * 2 ** (attempt - 1));
+        await new Promise((r) => setTimeout(r, backoff));
+        continue;
+      }
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new ScryfallHttpError(res.status, text || res.statusText);
+      }
+      return res.json() as Promise<T>;
+    } catch (err) {
+      if (err instanceof ScryfallHttpError) throw err;
+      if (isTransientNetworkError(err) && attempt < MAX_TRANSIENT_RETRIES) {
+        attempt += 1;
+        const backoff = Math.min(10000, 1000 * 2 ** (attempt - 1));
+        await new Promise((r) => setTimeout(r, backoff));
+        continue;
+      }
+      if (isTransientNetworkError(err)) {
+        throw new Error("network error, try again");
+      }
+      throw err;
     }
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`Scryfall ${res.status}: ${text || res.statusText}`);
-    }
-    return res.json() as Promise<T>;
   }
 }
 
@@ -118,6 +192,25 @@ export function getCardImage(card: ScryfallCard, size: "normal" | "large" | "png
     return getCardImage(card, "normal");
   }
   return CARD_BACK_URL;
+}
+
+/** All face images for DFCs / MDFCs / transform / modal / adventure layouts. */
+export function getCardFaceImages(
+  card: ScryfallCard,
+  size: "normal" | "large" | "png" = "normal",
+): Array<{ name: string; src: string }> {
+  const faces = card.card_faces?.filter((f) => f.image_uris?.[size] || f.image_uris?.normal) ?? [];
+  if (faces.length >= 2) {
+    return faces.map((f) => ({
+      name: f.name,
+      src: f.image_uris?.[size] ?? f.image_uris?.normal ?? CARD_BACK_URL,
+    }));
+  }
+  return [{ name: card.name, src: getCardImage(card, size) }];
+}
+
+export function isMultiFaceCard(card: ScryfallCard): boolean {
+  return (card.card_faces?.filter((f) => f.image_uris?.normal || f.image_uris?.large).length ?? 0) >= 2;
 }
 
 export function getOracleText(card: ScryfallCard) {
@@ -150,7 +243,9 @@ const PLAYSTYLE_QUERIES: Record<string, string> = {
   spellslinger: "(o:instant OR o:sorcery OR type:wizard)",
   voltron: "(o:equip OR o:aura OR o:attached)",
   stompy: "(o:trample OR power>=5)",
-  lifegain: "(o:\"gain\" life OR o:\"life total\")",
+  // Prefer true lifegain / lifelink; exclude drain / opponent-lose-life as primary theme
+  lifegain:
+    '((o:"gain life" OR o:lifelink OR keyword:lifelink) -(o:"loses life" OR o:"lose life" OR o:extort OR o:"drain"))',
   treasure: "(o:treasure)",
   reanimator: "(o:graveyard)",
 };
@@ -261,22 +356,32 @@ export async function searchPrintings(name: string): Promise<ScryfallCard[]> {
   return collectSearchPages(`/cards/search?q=${q}&order=released`, 200);
 }
 
-/** Fetch pages for a Scryfall search, optionally capped. Never throws — returns []. */
+/**
+ * Fetch pages for a Scryfall search, optionally capped by cards and pages.
+ * 404/400 (empty or bad query) → return what we have.
+ * 429 / network / other errors → rethrow (never pretend "no printings").
+ */
 async function collectSearchPages(
   path: string,
-  maxCards = 175,
+  maxCards = PIMP_MAX_PRINTS_NORMAL,
+  maxPages = 4,
 ): Promise<ScryfallCard[]> {
   const all: ScryfallCard[] = [];
   let url: string | undefined = path;
-  try {
-    while (url) {
+  let pages = 0;
+  while (url && pages < maxPages) {
+    try {
       const page: ScryfallList = await scryfallFetch<ScryfallList>(url);
-      all.push(...page.data);
+      pages += 1;
+      if (Array.isArray(page.data)) all.push(...page.data);
       url = page.has_more && page.next_page ? page.next_page : undefined;
       if (all.length >= maxCards) break;
+    } catch (err) {
+      if (err instanceof ScryfallHttpError && (err.isNotFound || err.status === 400)) {
+        break;
+      }
+      throw err;
     }
-  } catch {
-    // 404 (no cards) / 400 (bad query) / exhausted 429 — caller may fall back
   }
   return all;
 }
@@ -327,106 +432,143 @@ function mergePrintings(into: Map<string, ScryfallCard>, cards: ScryfallCard[]) 
 
 /**
  * Resolve a card by exact name (full then front face), then fuzzy.
- * Returns null only when Scryfall cannot resolve the name at all.
+ * Returns null only when Scryfall cannot resolve the name (404).
+ * Rate limits and other errors are rethrown — never treated as "not found".
  */
 async function resolveNamedCard(name: string): Promise<ScryfallCard | null> {
   const candidates = [name];
   const front = frontFaceName(name);
   if (front) candidates.push(front);
 
+  let sawNotFound = false;
   for (const candidate of candidates) {
     try {
       return await namedExact(candidate);
-    } catch {
-      /* try next */
+    } catch (err) {
+      if (isRetryableScryfallError(err)) throw err;
+      if (err instanceof ScryfallHttpError && err.isNotFound) {
+        sawNotFound = true;
+        continue;
+      }
+      // Other HTTP errors (400 bad name, etc.) — try next candidate
+      if (err instanceof ScryfallHttpError) {
+        sawNotFound = true;
+        continue;
+      }
+      throw err;
     }
   }
 
   try {
     return await namedCard(name);
-  } catch {
+  } catch (err) {
+    if (isRetryableScryfallError(err)) throw err;
     if (front) {
       try {
         return await namedCard(front);
-      } catch {
-        /* fall through */
+      } catch (err2) {
+        if (isRetryableScryfallError(err2)) throw err2;
       }
     }
+    if (!sawNotFound && !(err instanceof ScryfallHttpError)) throw err;
   }
   return null;
 }
 
-/** Paginate prints_search_uri; basics get a higher cap (many land arts). */
+/** Paginate prints_search_uri; basics get a higher page/card cap. */
 async function fetchPrintsFromUri(
   card: ScryfallCard,
-  maxCards = 200,
+  maxCards = PIMP_MAX_PRINTS_NORMAL,
+  maxPages = PIMP_MAX_PAGES_NORMAL,
 ): Promise<ScryfallCard[]> {
   const uri = card.prints_search_uri;
   if (!uri) return isPaperPrinting(card) ? [card] : [];
-  const pages = await collectSearchPages(uri, maxCards);
+  const pages = await collectSearchPages(uri, maxCards, maxPages);
   if (pages.length) return pages;
   return isPaperPrinting(card) ? [card] : [];
 }
 
+/** Session cache: identical names in a deck (e.g. 10 Forests) share one lookup. */
+const printingsCache = new Map<string, Promise<ScryfallCard[]>>();
+
 /**
  * Printings for deck pimping.
  *
- * Reliable pipeline (serialized via scryfallFetch throttle):
+ * Reliability over completeness (serialized via scryfallFetch throttle):
  * 1) Normalize the deck-list name
  * 2) Resolve via /cards/named (exact → fuzzy)
- * 3) Paginate card.prints_search_uri; filter digital / art series in code
- * 4) If still empty, simple `!"Name" unique:prints` search (± `-is:digital`)
+ * 3) One page of prints_search_uri (two for basics); filter digital in code
+ * 4) If empty, one-page `!"Name" unique:prints order=usd` search
  *
- * Special-treatment preference lives in scoring (`pimp.ts`), not in requiring
- * special-only search queries to succeed (those 404s caused false negatives).
+ * Rate limits / network errors throw — callers must NOT report that as
+ * "no printings found". Special-treatment preference lives in scoring (`pimp.ts`).
  */
 export async function searchPrintingsForPimp(name: string): Promise<ScryfallCard[]> {
   const primary = normalizeCardNameForSearch(name);
   if (!primary) return [];
 
-  const byId = new Map<string, ScryfallCard>();
+  const cacheKey = primary.toLowerCase();
+  const cached = printingsCache.get(cacheKey);
+  if (cached) return cached;
 
-  // —— Primary: named → prints_search_uri ——
-  const resolved = await resolveNamedCard(primary);
-  if (resolved) {
-    const isBasic = /\bbasic\b/i.test(resolved.type_line ?? "") && /\bland\b/i.test(resolved.type_line ?? "");
-    mergePrintings(byId, await fetchPrintsFromUri(resolved, isBasic ? 350 : 200));
-  }
+  const pending = (async () => {
+    const byId = new Map<string, ScryfallCard>();
 
-  // —— Fallback search queries (never conclude empty from special-only filters) ——
-  if (!byId.size) {
-    const variants = [primary];
-    const front = frontFaceName(primary);
-    if (front) variants.push(front);
+    // —— Primary: named → prints_search_uri (hard page/card cap) ——
+    const resolved = await resolveNamedCard(primary);
+    if (resolved) {
+      const isBasic =
+        /\bbasic\b/i.test(resolved.type_line ?? "") && /\bland\b/i.test(resolved.type_line ?? "");
+      const maxCards = isBasic ? PIMP_MAX_PRINTS_BASIC : PIMP_MAX_PRINTS_NORMAL;
+      const maxPages = isBasic ? PIMP_MAX_PAGES_BASIC : PIMP_MAX_PAGES_NORMAL;
+      mergePrintings(byId, await fetchPrintsFromUri(resolved, maxCards, maxPages));
+    }
 
-    for (const escaped of variants) {
-      if (byId.size) break;
-      const exact = `!"${escaped}" unique:prints`;
-      mergePrintings(
-        byId,
-        await collectSearchPages(
-          `/cards/search?q=${encodeURIComponent(`${exact} -is:digital`)}&order=released`,
-          200,
-        ),
-      );
-      if (!byId.size) {
+    // —— One-page fallback search (prefer pricey / flashy printings first) ——
+    if (!byId.size) {
+      const variants = [primary];
+      const front = frontFaceName(primary);
+      if (front) variants.push(front);
+
+      for (const escaped of variants) {
+        if (byId.size) break;
+        const exact = `!"${escaped}" unique:prints`;
         mergePrintings(
           byId,
           await collectSearchPages(
-            `/cards/search?q=${encodeURIComponent(exact)}&order=released`,
-            200,
+            `/cards/search?q=${encodeURIComponent(`${exact} -is:digital`)}&order=usd&dir=desc`,
+            PIMP_MAX_PRINTS_NORMAL,
+            1,
           ),
         );
+        if (!byId.size) {
+          mergePrintings(
+            byId,
+            await collectSearchPages(
+              `/cards/search?q=${encodeURIComponent(exact)}&order=usd&dir=desc`,
+              PIMP_MAX_PRINTS_NORMAL,
+              1,
+            ),
+          );
+        }
       }
     }
-  }
 
-  // Last resort: the single resolved printing itself
-  if (!byId.size && resolved && isPaperPrinting(resolved)) {
-    byId.set(resolved.id, resolved);
-  }
+    // Last resort: the single resolved printing itself
+    if (!byId.size && resolved && isPaperPrinting(resolved)) {
+      byId.set(resolved.id, resolved);
+    }
 
-  return [...byId.values()];
+    return [...byId.values()];
+  })();
+
+  printingsCache.set(cacheKey, pending);
+  try {
+    return await pending;
+  } catch (err) {
+    printingsCache.delete(cacheKey);
+    throw err;
+  }
 }
 
 export const COLOR_OPTIONS = [

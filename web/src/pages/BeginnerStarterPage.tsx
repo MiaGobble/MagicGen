@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Seo } from "../components/Seo";
 import {
   beginnerPreconUrl,
   beginnerSupplyTypes,
@@ -40,6 +41,11 @@ export function BeginnerStarterPage() {
 
   return (
     <div className="tool-page container">
+      <Seo
+        title="Beginner Starter"
+        description="A linear path from learning Magic: The Gathering rules to picking a precon and buying starter supplies."
+        path="/beginner"
+      />
       <header className="tool-header">
         <h1>Beginner starter</h1>
         <p>A linear path: learn the game, find a precon, get supplies, then play.</p>
@@ -81,12 +87,12 @@ export function BeginnerStarterPage() {
                 <p>Start here:</p>
                 <ul>
                   <li>
-                    <a href="https://magic.wizards.com/en/how-to-play" target="_blank" rel="noreferrer">
+                    <a href="https://magic.wizards.com/en/how-to-play" target="_blank" rel="noopener noreferrer">
                       Official Magic how-to-play
                     </a>
                   </li>
                   <li>
-                    <a href="https://draftsim.com/mtg-commander/" target="_blank" rel="noreferrer">
+                    <a href="https://draftsim.com/mtg-commander/" target="_blank" rel="noopener noreferrer">
                       Commander rules overview (Draftsim)
                     </a>
                   </li>
@@ -131,7 +137,7 @@ export function BeginnerStarterPage() {
                 <button type="button" className="btn btn-ghost" onClick={regenerate}>
                   Regenerate suggestion
                 </button>
-                <a className="btn btn-brass" href={deckUrl} target="_blank" rel="noreferrer">
+                <a className="btn btn-brass" href={deckUrl} target="_blank" rel="noopener noreferrer">
                   View on Amazon
                 </a>
                 <button type="button" className="btn btn-primary" onClick={() => setStep("Get")}>
@@ -149,7 +155,7 @@ export function BeginnerStarterPage() {
               Grab <strong>{precon.name}</strong>, then kit out with these starter supplies.
             </p>
             <div className="actions">
-              <a className="btn btn-brass" href={deckUrl} target="_blank" rel="noreferrer">
+              <a className="btn btn-brass" href={deckUrl} target="_blank" rel="noopener noreferrer">
                 Buy {precon.name} on Amazon
               </a>
               <Link className="btn btn-secondary" to="/supplies">
@@ -182,7 +188,7 @@ export function BeginnerStarterPage() {
                     <a
                       href="https://store.steampowered.com/app/286160/Tabletop_Simulator/"
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noopener noreferrer"
                     >
                       Tabletop Simulator
                     </a>{" "}
@@ -193,7 +199,7 @@ export function BeginnerStarterPage() {
                     <a
                       href="https://steamcommunity.com/sharedfiles/filedetails/?id=2296042369"
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noopener noreferrer"
                     >
                       MTG 4 player table – scripted
                     </a>{" "}
@@ -202,7 +208,7 @@ export function BeginnerStarterPage() {
                   </li>
                   <li>
                     Find games via{" "}
-                    <a href="https://discord.gg/blacklotuscollective" target="_blank" rel="noreferrer">
+                    <a href="https://discord.gg/blacklotuscollective" target="_blank" rel="noopener noreferrer">
                       Black Lotus Collective
                     </a>
                     .
@@ -214,7 +220,7 @@ export function BeginnerStarterPage() {
                 <ol>
                   <li>
                     Find a store with the{" "}
-                    <a href="https://locator.wizards.com/" target="_blank" rel="noreferrer">
+                    <a href="https://locator.wizards.com/" target="_blank" rel="noopener noreferrer">
                       Wizards Store & Event Locator
                     </a>
                     .

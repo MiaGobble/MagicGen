@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DeckActions } from "../components/DeckActions";
+import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
 import { pimpDeckList } from "../lib/pimp";
 import { getCardImage, type ScryfallCard } from "../lib/scryfall";
@@ -67,6 +68,11 @@ export function DeckPimpingPage() {
 
   return (
     <div className="tool-page container">
+      <Seo
+        title="Deck Pimping"
+        description="Paste a Moxfield-style Magic deck list and upgrade each card to a cooler, more desirable printing."
+        path="/pimp"
+      />
       <header className="tool-header">
         <h1>Deck pimping</h1>
         <p>Paste a Moxfield-style list and swap each card to a cooler, more desirable printing.</p>
@@ -76,14 +82,16 @@ export function DeckPimpingPage() {
         <summary>How printing picks work</summary>
         <div className="methodology__body">
           <p>
-            Each line is resolved on Scryfall, all paper printings are loaded, then scored. The
-            highest-scoring printing wins and is written back with set code + collector number.
+            Each line is resolved on Scryfall, a capped set of paper printings is loaded, then
+            scored. The highest-scoring printing wins and is written back with set code + collector
+            number.
           </p>
           <ul>
             <li>
-              <strong>Lookup.</strong> Each name is resolved via Scryfall’s named endpoint, then all
-              paper printings are loaded from that card’s prints URI (digital / art-series filtered
-              out in code). Special-treatment preference is applied only when scoring picks a winner.
+              <strong>Lookup.</strong> Each name is resolved via Scryfall’s named endpoint, then up
+              to about one page of paper printings is loaded from that card’s prints URI (two pages
+              for basics). Digital / art-series prints are filtered in code. Completeness is capped
+              so long decks stay reliable.
             </li>
             <li>
               <strong>Scoring.</strong> Secret Lair and premium treatments score highest; showcase /
@@ -96,7 +104,8 @@ export function DeckPimpingPage() {
             </li>
             <li>
               <strong>Failures.</strong> If Scryfall truly has no paper printing for a name, the
-              original line is kept and noted in the change log.
+              original line is kept and noted. Network errors and rate limits say “try again”
+              (not “no printings found”).
             </li>
           </ul>
         </div>

@@ -105,7 +105,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                       className="toast__action"
                       href={item.action.href}
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noopener noreferrer"
                     >
                       {item.action.label}
                     </a>

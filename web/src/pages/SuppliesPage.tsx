@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { buildSupplyQueries, SUPPLY_LABELS, type SupplyKey } from "../lib/amazon";
+import { Seo } from "../components/Seo";
 import { useToast } from "../components/Toast";
 
 const ITEMS = (Object.keys(SUPPLY_LABELS) as Exclude<SupplyKey, "comboSets">[]).map((key) => ({
@@ -41,6 +42,11 @@ export function SuppliesPage() {
 
   return (
     <div className="tool-page container">
+      <Seo
+        title="MTG Supplies"
+        description="Build an Amazon supplies cart for Magic: The Gathering dice, sleeves, deck boxes, playmats, and more."
+        path="/supplies"
+      />
       <header className="tool-header">
         <h1>MTG supplies</h1>
         <p>
@@ -133,7 +139,7 @@ export function SuppliesPage() {
           <ul className="tool-links" style={{ listStyle: "none", padding: 0 }}>
             {results.map((r) => (
               <li key={`${r.label}-${r.id}`}>
-                <a className="tool-link" href={r.url} target="_blank" rel="noreferrer">
+                <a className="tool-link" href={r.url} target="_blank" rel="noopener noreferrer">
                   <span className="tool-link__index">↗</span>
                   <span>
                     <h3>{r.label}</h3>

@@ -49,7 +49,7 @@ export function Layout() {
               className="nav-kofi"
               href="https://ko-fi.com/igottic"
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               onClick={() => setOpen(false)}
             >
               Support on Ko-fi
@@ -72,7 +72,7 @@ export function Layout() {
               </p>
               <p className="disclosure">
                 Card images and text are provided by{" "}
-                <a href="https://scryfall.com/" target="_blank" rel="noreferrer">
+                <a href="https://scryfall.com/" target="_blank" rel="noopener noreferrer">
                   Scryfall
                 </a>
                 . Magic: The Gathering is a trademark of Wizards of the Coast. This site is
@@ -87,12 +87,12 @@ export function Layout() {
               </p>
               <ul>
                 <li>
-                  <a href="https://ko-fi.com/igottic" target="_blank" rel="noreferrer">
+                  <a href="https://ko-fi.com/igottic" target="_blank" rel="noopener noreferrer">
                     Support on Ko-fi
                   </a>
                 </li>
                 <li>
-                  <a href="https://scds.igottic.com/" target="_blank" rel="noreferrer">
+                  <a href="https://scds.igottic.com/" target="_blank" rel="noopener noreferrer">
                     SCDS / FIE rating
                   </a>
                 </li>
@@ -102,17 +102,17 @@ export function Layout() {
               <h3>Links</h3>
               <ul>
                 <li>
-                  <a href="https://igottic.com/" target="_blank" rel="noreferrer">
+                  <a href="https://igottic.com/" target="_blank" rel="noopener noreferrer">
                     Portfolio
                   </a>
                 </li>
                 <li>
-                  <a href="https://github.com/MiaGobble" target="_blank" rel="noreferrer">
+                  <a href="https://github.com/MiaGobble" target="_blank" rel="noopener noreferrer">
                     GitHub
                   </a>
                 </li>
                 <li>
-                  <a href="https://x.com/iGottic_Real" target="_blank" rel="noreferrer">
+                  <a href="https://x.com/iGottic_Real" target="_blank" rel="noopener noreferrer">
                     Twitter / X
                   </a>
                 </li>
@@ -126,7 +126,7 @@ export function Layout() {
               className="fie-badge"
               href="https://scds.igottic.com/"
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               title="SCDS FIE rating"
             >
               <img src="/fie-rating.png" alt="SCDS FIE rating badge" />

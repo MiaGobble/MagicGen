@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
 import { proxySupplyLinks } from "../lib/amazon";
 import { parseMoxfieldList } from "../lib/moxfield";
@@ -204,6 +205,11 @@ export function ProxyToolsPage() {
 
   return (
     <div className="tool-page container">
+      <Seo
+        title="Proxy Tools"
+        description="Search, layout, and print labeled Magic: The Gathering playtest proxies as a PDF."
+        path="/proxy"
+      />
       <header className="tool-header no-print">
         <h1>Proxy tools</h1>
         <p>
@@ -219,7 +225,7 @@ export function ProxyToolsPage() {
           <a
             href="https://www.letsproxy.com/mtg-proxy-cards-the-complete-guide-to-making-using-and-printing-them/"
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
           >
             Let’s Proxy’s complete guide
           </a>{" "}
@@ -430,7 +436,7 @@ export function ProxyToolsPage() {
             <ul>
               {budgetSupplies.map((item) => (
                 <li key={item.name}>
-                  <a href={item.url} target="_blank" rel="noreferrer">
+                  <a href={item.url} target="_blank" rel="noopener noreferrer">
                     {item.name}
                   </a>
                 </li>
@@ -442,7 +448,7 @@ export function ProxyToolsPage() {
             <ul>
               {premiumSupplies.map((item) => (
                 <li key={item.name}>
-                  <a href={item.url} target="_blank" rel="noreferrer">
+                  <a href={item.url} target="_blank" rel="noopener noreferrer">
                     {item.name}
                   </a>
                 </li>

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { Seo } from "../components/Seo";
 
 const TOOLS = [
   {
@@ -51,6 +52,30 @@ const TOOLS = [
 export function HomePage() {
   return (
     <>
+      <Seo
+        title="MagicGen | MTG tools and generators"
+        description="Handy Magic: The Gathering tools for anybody playing: random commanders, pods, deck pimping, proxies, boosters, supplies, and more."
+        path="/"
+        jsonLd={[
+          {
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            name: "MagicGen",
+            url: "https://mtggen.igottic.com/",
+            description:
+              "A suite of Magic: The Gathering tools and generators by Mia Gobble.",
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            name: "MagicGen",
+            applicationCategory: "GameApplication",
+            operatingSystem: "Web",
+            url: "https://mtggen.igottic.com/",
+            offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+          },
+        ]}
+      />
       <section className="home-hero" aria-label="MagicGen hero">
         <div className="home-hero__bg" aria-hidden />
         <div className="container home-hero__content">
@@ -112,7 +137,7 @@ export function HomePage() {
                 className="btn btn-secondary home-hero__ghost"
                 href="https://ko-fi.com/igottic"
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
               >
                 Open Ko-fi page
               </a>
