@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://mtggen.igottic.com/sitemap.xml
+Sitemap: https://magicgen.igottic.com/sitemap.xml

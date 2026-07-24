@@ -7,9 +7,11 @@ import { parseMoxfieldList } from "../lib/moxfield";
 import { generateProxyPdf, type ProxyPdfOptions } from "../lib/proxyPdf";
 import { collectionLookupDetailed, getCardImage, namedCard, namedExact, searchCards, type ScryfallCard } from "../lib/scryfall";
 
+import { SITE_HOST } from "../lib/site";
+
 type ProxyEntry = { card: ScryfallCard; quantity: number };
 
-const SITE = "mtggen.igottic.com";
+const SITE = SITE_HOST;
 const STAMP = `Unofficial Print · ${SITE}`;
 
 export function ProxyToolsPage() {

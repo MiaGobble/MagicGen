@@ -1,6 +1,6 @@
 import { useEffect } from "react";
+import { SITE_ORIGIN } from "../lib/site";
 
-const SITE_ORIGIN = "https://mtggen.igottic.com";
 const DEFAULT_OG_IMAGE = `${SITE_ORIGIN}/logo.png`;
 const DEFAULT_TITLE = "MagicGen | MTG tools and generators";
 const DEFAULT_DESCRIPTION =

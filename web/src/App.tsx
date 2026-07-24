@@ -11,9 +11,12 @@ import { RandomCommanderPage } from "./pages/RandomCommanderPage";
 import { SleeveColorPage } from "./pages/SleeveColorPage";
 import { SuppliesPage } from "./pages/SuppliesPage";
 
+// Vite BASE_URL always ends with "/"; React Router basename must not.
+const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || undefined;
+
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<HomePage />} />

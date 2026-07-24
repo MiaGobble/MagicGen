@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { Seo } from "../components/Seo";
+import { SITE_ORIGIN } from "../lib/site";
 
 const TOOLS = [
   {
@@ -61,7 +62,7 @@ export function HomePage() {
             "@context": "https://schema.org",
             "@type": "WebSite",
             name: "MagicGen",
-            url: "https://mtggen.igottic.com/",
+            url: `${SITE_ORIGIN}/`,
             description:
               "A suite of Magic: The Gathering tools and generators by Mia Gobble.",
           },
@@ -71,7 +72,7 @@ export function HomePage() {
             name: "MagicGen",
             applicationCategory: "GameApplication",
             operatingSystem: "Web",
-            url: "https://mtggen.igottic.com/",
+            url: `${SITE_ORIGIN}/`,
             offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
           },
         ]}
