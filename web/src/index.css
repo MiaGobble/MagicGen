@@ -1215,22 +1215,56 @@ details.panel.methodology {
   margin-bottom: 0.4rem;
 }
 
+.progress-block__note {
+  margin: 0.55rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
 .progress-track {
-  height: 0.55rem;
+  height: 0.65rem;
   border-radius: 999px;
   background: rgba(39, 48, 67, 0.12);
   overflow: hidden;
 }
 
 .progress-fill {
+  position: relative;
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--forest), var(--brass));
   transition: width 180ms ease;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.progress-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0,
+    transparent 8px,
+    rgba(255, 255, 255, 0.22) 8px,
+    rgba(255, 255, 255, 0.22) 16px
+  );
+  background-size: 22px 22px;
+  animation: progress-shimmer 0.9s linear infinite;
+  pointer-events: none;
 }
 
 .progress-fill--pulse {
   animation: progress-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes progress-shimmer {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 22px 0;
+  }
 }
 
 @keyframes progress-pulse {
@@ -1243,6 +1277,17 @@ details.panel.methodology {
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .progress-fill::after {
+    animation: none;
+    background-image: none;
+  }
+
+  .progress-fill--pulse {
+    animation: none;
+  }
+}
+
 /* Toasts */
 .toast-stack {
   position: fixed;
@@ -1251,8 +1296,8 @@ details.panel.methodology {
   bottom: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  max-width: min(22rem, calc(100vw - 2rem));
+  gap: 0.65rem;
+  max-width: min(26rem, calc(100vw - 2rem));
   pointer-events: none;
 }
 
@@ -1260,31 +1305,41 @@ details.panel.methodology {
   pointer-events: auto;
   display: flex;
   align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.7rem 0.85rem;
+  gap: 0.65rem;
+  padding: 1rem 1.15rem;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface-strong);
-  box-shadow: var(--shadow);
+  border: 1px solid rgba(39, 48, 67, 0.35);
+  background: #f7faf4;
+  box-shadow:
+    0 10px 28px rgba(22, 28, 40, 0.22),
+    0 2px 6px rgba(22, 28, 40, 0.12);
   color: var(--ink);
-  font-size: 0.92rem;
-  line-height: 1.35;
+  font-size: 1.05rem;
+  font-weight: 500;
+  line-height: 1.4;
   animation: toast-in 180ms ease-out;
 }
 
 .toast--success {
-  border-color: rgba(39, 48, 67, 0.28);
+  border-color: rgba(39, 48, 67, 0.4);
+  background: #eef6ea;
 }
 
 .toast--error {
-  border-color: rgba(221, 4, 38, 0.45);
+  border-color: rgba(221, 4, 38, 0.55);
+  background: #fff5f6;
   color: var(--danger);
+}
+
+.toast--info {
+  border-color: rgba(39, 48, 67, 0.38);
+  background: #f3f6f0;
 }
 
 .toast__body {
   flex: 1;
   display: grid;
-  gap: 0.35rem;
+  gap: 0.45rem;
   min-width: 0;
 }
 
@@ -1294,15 +1349,15 @@ details.panel.methodology {
 
 .toast__action {
   justify-self: start;
-  font-weight: 600;
-  font-size: 0.9rem;
+  font-weight: 700;
+  font-size: 1rem;
   color: var(--red-deep);
-  text-decoration: none;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
 }
 
 .toast__action:hover {
   color: var(--red);
-  text-decoration: underline;
 }
 
 .toast__close {
@@ -1310,10 +1365,10 @@ details.panel.methodology {
   background: transparent;
   color: inherit;
   cursor: pointer;
-  font-size: 1.15rem;
+  font-size: 1.35rem;
   line-height: 1;
-  padding: 0 0.15rem;
-  opacity: 0.65;
+  padding: 0 0.2rem;
+  opacity: 0.7;
   flex-shrink: 0;
 }
 

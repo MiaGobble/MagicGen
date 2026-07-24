@@ -86,7 +86,6 @@ export function RandomCommanderPage() {
       const next = await randomCommander({
         colors: filters.colors,
         colorMode: filters.colorMode,
-        playstyle: filters.playstyle || undefined,
         set: filters.set || undefined,
         partners: filters.partners,
       });
@@ -129,7 +128,7 @@ export function RandomCommanderPage() {
     <div className="tool-page container">
       <Seo
         title="Random Commander"
-        description="Flip random Magic: The Gathering commanders with color and playstyle filters, then build an average EDHREC deck."
+        description="Flip random Magic: The Gathering commanders with color and set filters, then build an average EDHREC deck."
         path="/commander"
       />
       <header className="tool-header">
@@ -137,7 +136,7 @@ export function RandomCommanderPage() {
         <p>Keep flipping until something sparks a deck idea, then pull an average list from EDHREC.</p>
       </header>
 
-      <CommanderFilters value={filters} onChange={setFilters} />
+      <CommanderFilters value={filters} onChange={setFilters} showPlaystyle={false} />
 
       <div className="actions">
         <button type="button" className="btn btn-primary" onClick={onNewCommander} disabled={loading || flipping}>

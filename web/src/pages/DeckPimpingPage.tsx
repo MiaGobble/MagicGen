@@ -158,6 +158,9 @@ export function DeckPimpingPage() {
           <div className="progress-track">
             <div className="progress-fill" style={{ width: `${pct}%` }} />
           </div>
+          <p className="progress-block__note muted">
+            Pimping can take a few minutes. Scryfall rate limits slow large decks.
+          </p>
         </div>
       )}
 

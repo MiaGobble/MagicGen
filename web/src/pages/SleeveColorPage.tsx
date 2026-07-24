@@ -1,18 +1,7 @@
 import { useRef, useState } from "react";
 import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
-import {
-  matchSleeveColor,
-  type SleeveMatchResult,
-  type SleeveMatchStage,
-} from "../lib/amazon";
-
-const STAGE_PCT: Record<SleeveMatchStage, number> = {
-  naming: 10,
-  amazon: 70,
-  catalog: 90,
-  done: 100,
-};
+import { matchSleeveColor, type SleeveMatchResult } from "../lib/amazon";
 
 export function SleeveColorPage() {
   const { toast } = useToast();
@@ -29,12 +18,12 @@ export function SleeveColorPage() {
     const id = ++runId.current;
     setLoading(true);
     setStageLabel("Naming color…");
-    setStagePct(STAGE_PCT.naming);
+    setStagePct(10);
     try {
-      const match = await matchSleeveColor(color, premium, art, (stage, label) => {
+      const match = await matchSleeveColor(color, premium, art, (_stage, label, pct) => {
         if (runId.current !== id) return;
         setStageLabel(label);
-        setStagePct(STAGE_PCT[stage]);
+        setStagePct(pct);
       });
       if (runId.current !== id) return;
       setResult(match);
@@ -59,8 +48,8 @@ export function SleeveColorPage() {
       <header className="tool-header">
         <h1>Sleeve color matcher</h1>
         <p>
-          Pick a color. We name it, search many Amazon sleeve listings, score titles for color
-          agreement, and fall back to a curated catalog if live search fails.
+          Pick a color. MagicGen names it, searches Amazon sleeve listings, reads each listing&apos;s
+          Color/Style data when available, and falls back to a curated catalog if live search fails.
         </p>
       </header>
 
@@ -76,11 +65,6 @@ export function SleeveColorPage() {
               style={{ height: 48, padding: 4 }}
             />
           </div>
-          <div
-            className="color-swatch"
-            style={{ background: color, marginTop: "0.75rem" }}
-            aria-hidden
-          />
           <label className="check" style={{ marginTop: "1rem" }}>
             <input type="checkbox" checked={premium} onChange={(e) => setPremium(e.target.checked)} />
             Prefer premium brands (soft preference; better color wins)
@@ -155,11 +139,16 @@ export function SleeveColorPage() {
                     Hue family: {result.hue}
                     {result.source === "amazon" ? " · live Amazon hit" : " · catalog match"}
                   </p>
+                  {result.listingStyle ? (
+                    <p className="muted" style={{ margin: 0 }}>
+                      Listing style: {result.listingStyle}
+                    </p>
+                  ) : null}
                 </div>
               </div>
               <p style={{ marginTop: "1rem" }}>{result.title}</p>
               <a className="btn btn-brass" href={result.url} target="_blank" rel="noopener noreferrer">
-                Open product on Amazon
+                {result.url.includes("/dp/") ? "Open product on Amazon" : "Open color search on Amazon"}
               </a>
             </>
           ) : null}

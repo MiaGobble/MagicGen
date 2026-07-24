@@ -8,6 +8,8 @@ export type PricedCard = {
   card?: ScryfallCard;
 };
 
+export type VendorListMode = "prefill" | "clipboard";
+
 export type VendorQuote = {
   id: string;
   name: string;
@@ -16,7 +18,24 @@ export type VendorQuote = {
   grandTotal: number;
   missing: string[];
   cartUrl: string;
+  /** prefills URL with list vs opens import page (list already copied). */
+  listMode: VendorListMode;
 };
+
+/** Optional Mana Pool affiliate referral code (`?ref=`). Leave empty if none. */
+const MANAPOOL_REF = "";
+
+function deckListText(priced: PricedCard[]): string {
+  return priced.map((p) => `${p.quantity} ${p.name.split(" // ")[0]}`).join("\n");
+}
+
+/** UTF-8 → standard base64 (Mana Pool `deck=` param). */
+function utf8ToBase64(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let binary = "";
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary);
+}
 
 const SHIPPING: Record<string, number> = {
   tcgplayer: 4.99,
@@ -60,35 +79,45 @@ export function tcgplayerMassEntryUrl(priced: PricedCard[]): string {
 
 /** Card Kingdom deck builder with list preloaded. */
 export function cardKingdomBuilderUrl(priced: PricedCard[]): string {
-  const list = priced.map((p) => `${p.quantity} ${p.name.split(" // ")[0]}`).join("\n");
   const params = new URLSearchParams({
     partner: "magicgen",
     utm_source: "magicgen",
-    c: list,
+    c: deckListText(priced),
   });
   return `https://www.cardkingdom.com/builder?${params.toString()}`;
 }
 
-/** Manapool deck / buy helper with encoded list. */
+/**
+ * Mana Pool mass entry — official deep link used by EDHREC / affiliates:
+ * https://manapool.com/add-deck?deck=<base64(qty name\\n...)>&ref=<code>
+ */
 export function manapoolCartUrl(priced: PricedCard[]): string {
-  const list = priced.map((p) => `${p.quantity} ${p.name.split(" // ")[0]}`).join("\n");
   const params = new URLSearchParams({
-    list: list.slice(0, 1800),
+    deck: utf8ToBase64(deckListText(priced)),
+    ref_meta: "referrer:magicgen,decklist",
   });
-  return `https://manapool.com/?${params.toString()}#import`;
+  if (MANAPOOL_REF) params.set("ref", MANAPOOL_REF);
+  return `https://manapool.com/add-deck?${params.toString()}`;
 }
 
-/** Cardsphere — best-effort list search landing. */
-export function cardsphereUrl(priced: PricedCard[]): string {
-  const q = priced[0]?.name.split(" // ")[0] ?? "magic";
-  return `https://cardsphere.com/search?q=${encodeURIComponent(q)}`;
+/**
+ * Cardsphere has no public cart/list deep link. Open Wants (text importer lives
+ * under Actions → Import after login); caller should copy the list first.
+ */
+export function cardsphereUrl(_priced: PricedCard[]): string {
+  return "https://www.cardsphere.com/wants";
 }
 
 export function vendorQuotes(priced: PricedCard[]): VendorQuote[] {
   const subtotal = priced.reduce((s, p) => s + p.usd * p.quantity, 0);
   const missing = priced.filter((p) => !p.usd).map((p) => p.name);
 
-  const mk = (id: string, name: string, cartUrl: string): VendorQuote => {
+  const mk = (
+    id: string,
+    name: string,
+    cartUrl: string,
+    listMode: VendorListMode,
+  ): VendorQuote => {
     const shipping = SHIPPING[id] ?? 5;
     return {
       id,
@@ -98,14 +127,15 @@ export function vendorQuotes(priced: PricedCard[]): VendorQuote[] {
       grandTotal: subtotal + shipping,
       missing,
       cartUrl,
+      listMode,
     };
   };
 
   return [
-    mk("tcgplayer", "TCGPlayer", tcgplayerMassEntryUrl(priced)),
-    mk("cardkingdom", "Card Kingdom", cardKingdomBuilderUrl(priced)),
-    mk("manapool", "Manapool", manapoolCartUrl(priced)),
-    mk("cardsphere", "Cardsphere", cardsphereUrl(priced)),
+    mk("tcgplayer", "TCGPlayer", tcgplayerMassEntryUrl(priced), "prefill"),
+    mk("cardkingdom", "Card Kingdom", cardKingdomBuilderUrl(priced), "prefill"),
+    mk("manapool", "Manapool", manapoolCartUrl(priced), "prefill"),
+    mk("cardsphere", "Cardsphere", cardsphereUrl(priced), "clipboard"),
   ];
 }
 

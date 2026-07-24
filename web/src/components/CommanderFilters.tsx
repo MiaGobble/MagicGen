@@ -12,9 +12,15 @@ type Props = {
   value: FilterState;
   onChange: (next: FilterState) => void;
   showPartners?: boolean;
+  showPlaystyle?: boolean;
 };
 
-export function CommanderFilters({ value, onChange, showPartners = true }: Props) {
+export function CommanderFilters({
+  value,
+  onChange,
+  showPartners = true,
+  showPlaystyle = true,
+}: Props) {
   function toggleColor(id: string) {
     const has = value.colors.includes(id);
     onChange({
@@ -55,20 +61,22 @@ export function CommanderFilters({ value, onChange, showPartners = true }: Props
             <option value="atMost">At most these</option>
           </select>
         </div>
-        <div className="field">
-          <label htmlFor="playstyle">Playstyle</label>
-          <select
-            id="playstyle"
-            value={value.playstyle}
-            onChange={(e) => onChange({ ...value, playstyle: e.target.value })}
-          >
-            {PLAYSTYLE_OPTIONS.map((p) => (
-              <option key={p.id || "any"} value={p.id}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        {showPlaystyle && (
+          <div className="field">
+            <label htmlFor="playstyle">Playstyle</label>
+            <select
+              id="playstyle"
+              value={value.playstyle}
+              onChange={(e) => onChange({ ...value, playstyle: e.target.value })}
+            >
+              {PLAYSTYLE_OPTIONS.map((p) => (
+                <option key={p.id || "any"} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="field">
           <label htmlFor="set">Set code (optional)</label>
           <input

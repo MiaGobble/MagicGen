@@ -36,7 +36,7 @@ type ToastContextValue = {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-const DISMISS_MS = 3000;
+const DISMISS_MS = 5000;
 const KOFI_TOAST_KEY = "magicgen-kofi-toast-shown";
 const KOFI_URL = "https://ko-fi.com/igottic";
 

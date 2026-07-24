@@ -57,13 +57,31 @@ export function BulkPurchasePage() {
 
   const scryfallTotal = priced?.reduce((s, p) => s + p.usd * p.quantity, 0) ?? 0;
 
-  async function openVendorCart(url: string, rows: PricedCard[]) {
-    const list = rows.map((p) => `${p.quantity} ${p.name}`).join("\n");
+  async function openVendorCart(
+    url: string,
+    rows: PricedCard[],
+    listMode: "prefill" | "clipboard" = "prefill",
+  ) {
+    const list = rows.map((p) => `${p.quantity} ${p.name.split(" // ")[0]}`).join("\n");
+    let copied = false;
     try {
       await navigator.clipboard.writeText(list);
-      toast("List copied to clipboard", "success");
+      copied = true;
     } catch {
-      toast("Opened vendor (clipboard copy failed)", "info");
+      /* clipboard may be blocked */
+    }
+
+    if (listMode === "clipboard") {
+      toast(
+        copied
+          ? "List copied — paste into Cardsphere Wants → Actions → Import"
+          : "Open Cardsphere Wants and paste your list (clipboard copy failed)",
+        copied ? "success" : "info",
+      );
+    } else if (copied) {
+      toast("List copied to clipboard (backup)", "success");
+    } else {
+      toast("Opened vendor (clipboard backup failed)", "info");
     }
     window.open(url, "_blank", "noopener,noreferrer");
   }
@@ -123,19 +141,21 @@ export function BulkPurchasePage() {
                   key={q.id}
                   type="button"
                   className="price-btn"
-                  onClick={() => openVendorCart(q.cartUrl, priced)}
+                  onClick={() => openVendorCart(q.cartUrl, priced, q.listMode)}
                 >
                   <span>{q.name}</span>
                   <strong>{formatUsd(q.grandTotal)}</strong>
                   <span className="muted">
-                    {formatUsd(q.total)} + {formatUsd(q.shipping)} ship · list preloaded
+                    {formatUsd(q.total)} + {formatUsd(q.shipping)} ship ·{" "}
+                    {q.listMode === "prefill" ? "list preloaded" : "copy list + open import"}
                   </span>
                 </button>
               ))}
             </div>
             <p className="muted" style={{ marginTop: "0.75rem" }}>
-              TCGPlayer opens Mass Entry with your cards. Card Kingdom opens the deck builder with the
-              list in the URL. Your list is also copied to the clipboard as a backup.
+              TCGPlayer Mass Entry, Card Kingdom builder, and Mana Pool add-deck preload your list in
+              the URL. Cardsphere has no cart deep link — we copy the list and open Wants so you can
+              paste into Actions → Import. The list is also copied as a backup for the other vendors.
             </p>
           </section>
 
@@ -164,7 +184,13 @@ export function BulkPurchasePage() {
                         type="button"
                         className="btn btn-secondary"
                         style={{ marginTop: "0.5rem" }}
-                        onClick={() => openVendorCart(vendorCartUrlForSplit(id, subset), subset)}
+                        onClick={() =>
+                          openVendorCart(
+                            vendorCartUrlForSplit(id, subset),
+                            subset,
+                            id === "cardsphere" ? "clipboard" : "prefill",
+                          )
+                        }
                       >
                         Open {id} with these cards
                       </button>
