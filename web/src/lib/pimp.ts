@@ -1,3 +1,7 @@
+/**
+ * Deck pimping: score Scryfall printings and rewrite a Moxfield list to flashier arts.
+ * Prefers special treatments; never keeps a plain default when a better printing exists.
+ */
 import type { ScryfallCard } from "./scryfall";
 import {
   isRetryableScryfallError,

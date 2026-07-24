@@ -1,3 +1,8 @@
+/**
+ * Scryfall API client.
+ * Sections: types → fetch/throttle → card helpers → commander search →
+ * collection → printings (pimping) → mana symbols.
+ */
 export type ScryfallCard = {
   id: string;
   name: string;
