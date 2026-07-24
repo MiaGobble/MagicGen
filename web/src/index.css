@@ -623,9 +623,7 @@ textarea {
   background:
     linear-gradient(105deg, rgba(39, 48, 67, 0.94) 0%, rgba(39, 48, 67, 0.78) 45%, rgba(39, 48, 67, 0.45) 72%, transparent 100%),
     radial-gradient(circle at 82% 28%, rgba(240, 45, 58, 0.45), transparent 42%),
-    url("/logo.png") right 8% center / min(42vw, 380px) no-repeat,
     linear-gradient(145deg, #273043 0%, #1a2230 55%, #121821 100%);
-  background-blend-mode: normal, normal, soft-light, normal;
   animation: heroDrift 18s ease-in-out infinite alternate;
 }
 
@@ -668,17 +666,6 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
-}
-
-.home-hero__mark {
-  margin: 0 0 0.75rem;
-}
-
-.home-hero__mark img {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
 }
 
 .home-hero__ghost {

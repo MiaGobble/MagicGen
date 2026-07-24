@@ -12,12 +12,11 @@ export function SuppliesPage() {
   const { toast } = useToast();
   const [selected, setSelected] = useState<SupplyKey[]>([
     "d20",
-    "d6",
     "sleeves",
     "deckBoxes",
   ]);
   const [premium, setPremium] = useState(true);
-  const [spindown, setSpindown] = useState(true);
+  const [spindown, setSpindown] = useState(false);
   const [deckBoxType, setDeckBoxType] = useState<"any" | "magnetic" | "plastic">("any");
   const [playmatType, setPlaymatType] = useState<"any" | "art" | "basic">("any");
   const [allowCombo, setAllowCombo] = useState(false);

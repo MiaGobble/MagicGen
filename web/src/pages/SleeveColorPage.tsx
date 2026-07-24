@@ -7,7 +7,6 @@ export function SleeveColorPage() {
   const { toast } = useToast();
   const [color, setColor] = useState("#2a6b55");
   const [premium, setPremium] = useState(true);
-  const [art, setArt] = useState<"any" | "art" | "basic">("any");
   const [result, setResult] = useState<SleeveMatchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [stageLabel, setStageLabel] = useState("Matching…");
@@ -20,7 +19,7 @@ export function SleeveColorPage() {
     setStageLabel("Naming color…");
     setStagePct(10);
     try {
-      const match = await matchSleeveColor(color, premium, art, (_stage, label, pct) => {
+      const match = await matchSleeveColor(color, premium, "any", (_stage, label, pct) => {
         if (runId.current !== id) return;
         setStageLabel(label);
         setStagePct(pct);
@@ -69,21 +68,6 @@ export function SleeveColorPage() {
             <input type="checkbox" checked={premium} onChange={(e) => setPremium(e.target.checked)} />
             Prefer premium brands (soft preference; better color wins)
           </label>
-          <div className="field" style={{ marginTop: "0.75rem" }}>
-            <label htmlFor="art-pref">Art preference</label>
-            <select
-              id="art-pref"
-              value={art}
-              onChange={(e) => setArt(e.target.value as typeof art)}
-            >
-              <option value="any">Any (color first)</option>
-              <option value="art">Art / dual art sleeves</option>
-              <option value="basic">Basic matte color</option>
-            </select>
-            <p className="muted" style={{ marginTop: "0.35rem", fontSize: "0.9rem" }}>
-              Art prefers illustrated dual-art sleeves; basic prefers solid matte colors.
-            </p>
-          </div>
           <div className="actions">
             <button
               type="button"

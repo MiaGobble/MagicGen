@@ -79,9 +79,6 @@ export function HomePage() {
       <section className="home-hero" aria-label="MagicGen hero">
         <div className="home-hero__bg" aria-hidden />
         <div className="container home-hero__content">
-          <p className="home-hero__mark">
-            <img src="/logo.png" alt="" width={56} height={56} />
-          </p>
           <h1 className="home-hero__brand">MagicGen</h1>
           <p className="home-hero__headline">Handy tools for anybody playing MTG</p>
           <p className="home-hero__support">
