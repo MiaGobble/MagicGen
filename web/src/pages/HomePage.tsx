@@ -128,7 +128,7 @@ export function HomePage() {
             <div className="support-band__copy">
               <h2>Support MagicGen on Ko-fi</h2>
               <p>
-                MagicGen is free and local-friendly. Tips on Ko-fi help fund hosting and new tools.
+                MagicGen is free and local-friendly. Tips on Ko-fi help support new tools.
                 Tip directly below without leaving the site.
               </p>
               <a

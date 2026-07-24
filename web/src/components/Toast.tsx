@@ -144,7 +144,7 @@ export function maybeShowKofiSupportToast(
   } catch {
     return;
   }
-  toast("Enjoying MagicGen? A Ko-fi tip keeps the tools running.", {
+  toast("Enjoying MagicGen? A Ko-fi tip keeps MagicGen growing.", {
     tone: "info",
     durationMs: 10000,
     action: { label: "Support on Ko-fi", href: KOFI_URL },
