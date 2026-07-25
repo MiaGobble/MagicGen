@@ -172,7 +172,7 @@ export function Layout() {
               </div>
 
               <div className="site-footer__meta">
-                <span>With love by Mia Gobble</span>
+                <span>Made with 💞 by Mia Gobble</span>
                 <a
                   className="fie-badge"
                   href="https://scds.igottic.com/"
