@@ -3,15 +3,15 @@ import { useEffect, useState } from "react";
 import { ToastProvider } from "./Toast";
 
 const LINKS = [
-  { to: "/commander", label: "Commander" },
-  { to: "/pod", label: "Pod" },
-  { to: "/pimp", label: "Deck Pimp" },
-  { to: "/booster", label: "Boosters" },
-  { to: "/proxy", label: "Proxies" },
-  { to: "/bulk", label: "Bulk Buy" },
-  { to: "/supplies", label: "Supplies" },
-  { to: "/sleeves", label: "Sleeves" },
-  { to: "/beginner", label: "Beginner" },
+  { to: "/commander", label: "Random commander" },
+  { to: "/pod", label: "Pod generator" },
+  { to: "/pimp", label: "Deck pimping" },
+  { to: "/booster", label: "Booster generator" },
+  { to: "/proxy", label: "Proxy tools" },
+  { to: "/bulk", label: "Bulk purchasing" },
+  { to: "/supplies", label: "MTG supplies" },
+  { to: "/sleeves", label: "Sleeve color matcher" },
+  { to: "/beginner", label: "Beginner starter" },
 ];
 
 export function Layout() {
