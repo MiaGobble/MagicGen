@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { CommanderFilters, DEFAULT_FILTERS, type FilterState } from "../components/CommanderFilters";
-import { DeckActions } from "../components/DeckActions";
 import { ColorIdentity, ManaCost } from "../components/Mana";
 import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
@@ -283,6 +282,9 @@ export function RandomCommanderPage() {
           </p>
           <pre className="list-block">{deck}</pre>
           <div className="actions">
+            <Link className="btn btn-brass" to={`/bulk?list=${encodeURIComponent(deck)}`}>
+              Price / purchase
+            </Link>
             <button
               type="button"
               className="btn btn-secondary"
@@ -295,8 +297,19 @@ export function RandomCommanderPage() {
             >
               Copy list
             </button>
+            <Link className="btn btn-secondary" to={`/proxy?list=${encodeURIComponent(deck)}`}>
+              Proxy this list
+            </Link>
+            <Link className="btn btn-ghost" to={`/pimp?list=${encodeURIComponent(deck)}`}>
+              Pimp printings
+            </Link>
+            <Link
+              className="btn btn-ghost"
+              to={`/budget?list=${encodeURIComponent(deck)}&bracket=${bracket}`}
+            >
+              Deck cost cutter
+            </Link>
           </div>
-          <DeckActions list={deck} />
         </section>
       )}
 

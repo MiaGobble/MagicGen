@@ -20,7 +20,7 @@ const TOOLS = [
   },
   {
     to: "/budget",
-    title: "Budget deck",
+    title: "Deck cost cutter",
     blurb: "Cut a commander list down to a max Scryfall price with EDHREC swaps.",
   },
   {

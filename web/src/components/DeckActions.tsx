@@ -15,11 +15,11 @@ export function DeckActions({ list, compact, hidePimp, bare }: Props) {
 
   const buttons = (
     <>
-      <Link className="btn btn-secondary" to={`/proxy?list=${encoded}`}>
-        Proxy this list
-      </Link>
       <Link className="btn btn-brass" to={`/bulk?list=${encoded}`}>
         Price / purchase
+      </Link>
+      <Link className="btn btn-secondary" to={`/proxy?list=${encoded}`}>
+        Proxy this list
       </Link>
       {!hidePimp && (
         <Link className="btn btn-ghost" to={`/pimp?list=${encoded}`}>

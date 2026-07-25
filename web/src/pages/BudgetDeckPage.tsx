@@ -22,7 +22,7 @@ export function BudgetDeckPage() {
 
   const [input, setInput] = useState(initial);
   const [maxPrice, setMaxPrice] = useState(50);
-  const [bracket, setBracket] = useState(3);
+  const [bracket, setBracket] = useState(() => clampBracket(Number(params.get("bracket") || 3)));
   const [commanderOverride, setCommanderOverride] = useState("");
   const [result, setResult] = useState<BudgetDeckResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -67,12 +67,12 @@ export function BudgetDeckPage() {
   return (
     <div className="tool-page container">
       <Seo
-        title="Budget Deck"
+        title="Deck Cost Cutter"
         description="Paste a commander deck, set a max price, and swap expensive cards for cheaper EDHREC picks."
         path="/budget"
       />
       <header className="tool-header">
-        <h1>Budget deck</h1>
+        <h1>Deck cost cutter</h1>
         <p>
           Set a max Scryfall price, paste your commander list, and replace expensive cards with
           cheaper EDHREC recommendations.
@@ -170,7 +170,7 @@ export function BudgetDeckPage() {
           aria-valuemin={0}
           aria-valuemax={progress.total || 100}
           aria-valuenow={progress.done}
-          aria-label="Budget deck progress"
+          aria-label="Deck cost cutter progress"
         >
           <div className="progress-block__meta">
             <span>{progress.label}</span>
@@ -231,7 +231,7 @@ export function BudgetDeckPage() {
           )}
 
           <section className="panel" style={{ marginTop: "1rem" }}>
-            <h2 style={{ marginTop: 0 }}>Budget list</h2>
+            <h2 style={{ marginTop: 0 }}>Cut-cost list</h2>
             <pre className="list-block">{result.list}</pre>
             <div className="actions">
               <button
@@ -239,7 +239,7 @@ export function BudgetDeckPage() {
                 className="btn btn-secondary"
                 onClick={() => {
                   void navigator.clipboard.writeText(result.list).then(
-                    () => toast("Copied budget list", "success"),
+                    () => toast("Copied list", "success"),
                     () => toast("Could not copy", "error"),
                   );
                 }}
