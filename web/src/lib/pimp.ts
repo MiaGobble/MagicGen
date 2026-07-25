@@ -315,10 +315,18 @@ function pickBestPrinting(prints: ScryfallCard[], line: DeckLine): ScryfallCard 
   return pool[0];
 }
 
+export type PimpPick = {
+  /** Index into `lines` for this printing. */
+  lineIndex: number;
+  card: ScryfallCard;
+};
+
 export type PimpResult = {
   list: string;
   lines: DeckLine[];
+  /** Successfully resolved printings (same order as `picks`). */
   cards: ScryfallCard[];
+  picks: PimpPick[];
   notes: string[];
 };
 
@@ -332,6 +340,7 @@ export async function pimpDeckList(
   const notes: string[] = [];
   const out: DeckLine[] = [];
   const cards: ScryfallCard[] = [];
+  const picks: PimpPick[] = [];
   const total = parsed.length;
 
   onProgress?.(0, total);
@@ -357,6 +366,7 @@ export async function pimpDeckList(
         category: line.category ?? "Deck",
       });
       cards.push(best);
+      picks.push({ lineIndex: out.length - 1, card: best });
 
       const changed =
         !line.setCode ||
@@ -392,5 +402,5 @@ export async function pimpDeckList(
     onProgress?.(i + 1, total);
   }
 
-  return { list: toMoxfieldList(out, true), lines: out, cards, notes };
+  return { list: toMoxfieldList(out, true), lines: out, cards, picks, notes };
 }

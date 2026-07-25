@@ -947,12 +947,31 @@ details.panel.methodology {
   gap: 1.25rem;
 }
 
+.pimp-gallery__hint {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
 .pimp-hero {
   position: relative;
   min-height: 320px;
   border-radius: var(--radius);
   overflow: hidden;
   isolation: isolate;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+}
+
+.pimp-hero:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 3px;
 }
 
 .pimp-hero__bg {
@@ -1028,6 +1047,30 @@ details.panel.methodology {
   margin: 0;
   display: grid;
   gap: 0.55rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.pimp-tile:hover,
+.pimp-tile:focus-visible {
+  border-color: var(--border-strong);
+  box-shadow: 0 8px 22px rgba(39, 48, 67, 0.12);
+}
+
+.pimp-tile:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
+}
+
+.pimp-tile--active {
+  border-color: var(--red);
 }
 
 .pimp-tile__art {
@@ -1060,18 +1103,136 @@ details.panel.methodology {
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
 }
 
-.pimp-tile figcaption {
+.pimp-tile__cap {
   display: grid;
   gap: 0.15rem;
+  padding: 0 0.15rem 0.15rem;
 }
 
-.pimp-tile figcaption strong {
+.pimp-tile__cap strong {
   font-size: 0.95rem;
 }
 
-.pimp-tile figcaption span {
+.pimp-tile__cap span {
   font-size: 0.8rem;
   color: var(--ink-soft);
+}
+
+.pimp-picker {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: end center;
+  padding: 0;
+}
+
+.pimp-picker__backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: rgba(39, 48, 67, 0.55);
+  cursor: pointer;
+}
+
+.pimp-picker__panel {
+  position: relative;
+  z-index: 1;
+  width: min(920px, 100%);
+  max-height: min(88vh, 820px);
+  overflow: auto;
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+  box-shadow: var(--shadow);
+  padding: 1.15rem 1.25rem 1.5rem;
+  display: grid;
+  gap: 1rem;
+  animation: riseIn 220ms ease;
+}
+
+.pimp-picker__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.pimp-picker__eyebrow {
+  margin: 0 0 0.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
+.pimp-picker__header h2 {
+  margin: 0;
+  font-size: 1.45rem;
+  line-height: 1.15;
+}
+
+.pimp-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 0.75rem;
+}
+
+.pimp-picker__option {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(239, 246, 238, 0.65);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+
+.pimp-picker__option:hover,
+.pimp-picker__option:focus-visible {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(39, 48, 67, 0.1);
+}
+
+.pimp-picker__option:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
+}
+
+.pimp-picker__option--selected {
+  border-color: var(--red);
+  box-shadow: 0 0 0 1px rgba(240, 45, 58, 0.35);
+}
+
+.pimp-picker__option img {
+  width: 100%;
+  aspect-ratio: 5 / 7;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--navy);
+}
+
+.pimp-picker__option > span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.pimp-picker__option strong {
+  font-size: 0.82rem;
+  line-height: 1.2;
+}
+
+.pimp-picker__option > span > span {
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  line-height: 1.25;
 }
 
 @media (max-width: 700px) {
@@ -1085,6 +1246,27 @@ details.panel.methodology {
     grid-row: auto;
     width: 140px;
     justify-self: start;
+  }
+
+  .pimp-picker {
+    place-items: stretch;
+  }
+
+  .pimp-picker__panel {
+    max-height: 92vh;
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+}
+
+@media (min-width: 701px) {
+  .pimp-picker {
+    place-items: center;
+    padding: 1.5rem;
+  }
+
+  .pimp-picker__panel {
+    border-radius: var(--radius);
+    max-height: min(86vh, 820px);
   }
 }
 

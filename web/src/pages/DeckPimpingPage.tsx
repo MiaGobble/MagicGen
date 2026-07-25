@@ -1,15 +1,20 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { DeckActions } from "../components/DeckActions";
 import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
-import { pimpDeckList } from "../lib/pimp";
-import { getCardImage, type ScryfallCard } from "../lib/scryfall";
+import { toMoxfieldList, type DeckLine } from "../lib/moxfield";
+import { pimpDeckList, type PimpPick } from "../lib/pimp";
+import { getCardImage, searchPrintingsForPimp, type ScryfallCard } from "../lib/scryfall";
 
 function artCrop(card: ScryfallCard) {
   if (card.image_uris?.art_crop) return card.image_uris.art_crop;
   const face = card.card_faces?.find((f) => f.image_uris?.art_crop);
   return face?.image_uris?.art_crop ?? getCardImage(card, "large");
+}
+
+function printingLabel(card: ScryfallCard) {
+  return `${card.set_name} · #${card.collector_number}`;
 }
 
 export function DeckPimpingPage() {
@@ -25,22 +30,51 @@ export function DeckPimpingPage() {
 
   const [input, setInput] = useState(initial);
   const [output, setOutput] = useState("");
-  const [cards, setCards] = useState<ScryfallCard[]>([]);
+  const [lines, setLines] = useState<DeckLine[]>([]);
+  const [picks, setPicks] = useState<PimpPick[]>([]);
   const [notes, setNotes] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [editingPick, setEditingPick] = useState<number | null>(null);
+  const [printOptions, setPrintOptions] = useState<ScryfallCard[]>([]);
+  const [printLoading, setPrintLoading] = useState(false);
+  const [printError, setPrintError] = useState<string | null>(null);
+
+  const cards = useMemo(() => picks.map((p) => p.card), [picks]);
+  const hero = cards[0];
+  const editing = editingPick != null ? picks[editingPick] : null;
+  const pct =
+    progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
+
+  useEffect(() => {
+    if (editingPick == null) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") closePicker();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [editingPick]);
+
   async function onPimp() {
     setLoading(true);
     setError(null);
     setProgress({ done: 0, total: 0 });
+    setEditingPick(null);
+    setPrintOptions([]);
     try {
       const result = await pimpDeckList(input, (done, total) => {
         setProgress({ done, total });
       });
       setOutput(result.list);
-      setCards(result.cards);
+      setLines(result.lines);
+      setPicks(result.picks);
       setNotes(result.notes);
       toast(`Pimped ${result.cards.length} card${result.cards.length === 1 ? "" : "s"}`, "success");
       maybeShowKofiSupportToast(toast);
@@ -62,9 +96,59 @@ export function DeckPimpingPage() {
     }
   }
 
-  const hero = cards[0];
-  const pct =
-    progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
+  function closePicker() {
+    setEditingPick(null);
+    setPrintOptions([]);
+    setPrintError(null);
+    setPrintLoading(false);
+  }
+
+  async function openPicker(pickIndex: number) {
+    const pick = picks[pickIndex];
+    if (!pick) return;
+    setEditingPick(pickIndex);
+    setPrintOptions([]);
+    setPrintError(null);
+    setPrintLoading(true);
+    try {
+      const prints = await searchPrintingsForPimp(pick.card.name);
+      setPrintOptions(prints);
+      if (!prints.length) setPrintError("No paper printings found for this card.");
+    } catch (err) {
+      setPrintError(err instanceof Error ? err.message : "Could not load printings");
+    } finally {
+      setPrintLoading(false);
+    }
+  }
+
+  function applyPrinting(printing: ScryfallCard) {
+    if (editingPick == null) return;
+    const pick = picks[editingPick];
+    if (!pick) return;
+
+    const nextPicks = picks.map((p, i) =>
+      i === editingPick ? { ...p, card: printing } : p,
+    );
+    const nextLines = lines.map((l, i) =>
+      i === pick.lineIndex
+        ? {
+            ...l,
+            setCode: printing.set,
+            collectorNumber: printing.collector_number,
+          }
+        : l,
+    );
+
+    setPicks(nextPicks);
+    setLines(nextLines);
+    setOutput(toMoxfieldList(nextLines, true));
+    setNotes((prev) => [
+      `${printing.name}: manually set to ${printing.set_name} #${printing.collector_number}`,
+      ...prev,
+    ]);
+    closePicker();
+    toast(`Updated ${printing.name}`, "success");
+  }
 
   return (
     <div className="tool-page container">
@@ -84,7 +168,7 @@ export function DeckPimpingPage() {
           <p>
             Each line is resolved on Scryfall, a capped set of paper printings is loaded, then
             scored. The highest-scoring printing wins and is written back with set code + collector
-            number.
+            number. After pimping, click any card in the gallery to pick a different printing.
           </p>
           <ul>
             <li>
@@ -106,6 +190,10 @@ export function DeckPimpingPage() {
               <strong>Failures.</strong> If Scryfall truly has no paper printing for a name, the
               original line is kept and noted. Network errors and rate limits say “try again”
               (not “no printings found”).
+            </li>
+            <li>
+              <strong>Manual override.</strong> Click a gallery card to browse its paper printings
+              and swap the set code / collector number in the output list.
             </li>
           </ul>
         </div>
@@ -168,52 +256,117 @@ export function DeckPimpingPage() {
 
       {output && <DeckActions list={output} />}
 
-      {cards.length > 0 && (
+      {picks.length > 0 && (
         <section className="pimp-gallery" aria-label="Pimped printings">
+          <p className="pimp-gallery__hint muted">Click a card to change its printing.</p>
           {hero && (
-            <div className="pimp-hero">
+            <button
+              type="button"
+              className="pimp-hero"
+              onClick={() => void openPicker(0)}
+              aria-label={`Change printing for ${hero.name}`}
+            >
               <img src={artCrop(hero)} alt="" className="pimp-hero__bg" />
               <div className="pimp-hero__veil" />
               <div className="pimp-hero__content">
-                <p className="pimp-hero__eyebrow">Pimped printing</p>
+                <p className="pimp-hero__eyebrow">Pimped printing · click to change</p>
                 <h2>{hero.name}</h2>
-                <p>
-                  {hero.set_name} · #{hero.collector_number}
-                </p>
+                <p>{printingLabel(hero)}</p>
                 <img
                   className="pimp-hero__card"
                   src={getCardImage(hero, "large")}
-                  alt={hero.name}
+                  alt=""
                 />
               </div>
-            </div>
+            </button>
           )}
 
           <div className="pimp-rail">
-            {cards.map((c) => (
-              <figure key={`${c.id}-${c.collector_number}`} className="pimp-tile">
+            {picks.map((pick, i) => (
+              <button
+                key={`${pick.lineIndex}-${pick.card.id}`}
+                type="button"
+                className={`pimp-tile${editingPick === i ? " pimp-tile--active" : ""}`}
+                onClick={() => void openPicker(i)}
+                aria-label={`Change printing for ${pick.card.name}`}
+              >
                 <div className="pimp-tile__art">
-                  <img src={artCrop(c)} alt="" />
-                  <img className="pimp-tile__card" src={getCardImage(c)} alt={c.name} />
+                  <img src={artCrop(pick.card)} alt="" />
+                  <img className="pimp-tile__card" src={getCardImage(pick.card)} alt="" />
                 </div>
-                <figcaption>
-                  <strong>{c.name}</strong>
-                  <span>
-                    {c.set_name} #{c.collector_number}
-                  </span>
-                </figcaption>
-              </figure>
+                <span className="pimp-tile__cap">
+                  <strong>{pick.card.name}</strong>
+                  <span>{printingLabel(pick.card)}</span>
+                </span>
+              </button>
             ))}
           </div>
         </section>
+      )}
+
+      {editing && (
+        <div
+          className="pimp-picker"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pimp-picker-title"
+        >
+          <button
+            type="button"
+            className="pimp-picker__backdrop"
+            aria-label="Close printing picker"
+            onClick={closePicker}
+          />
+          <div className="pimp-picker__panel">
+            <header className="pimp-picker__header">
+              <div>
+                <p className="pimp-picker__eyebrow">Choose printing</p>
+                <h2 id="pimp-picker-title">{editing.card.name}</h2>
+              </div>
+              <button type="button" className="btn btn-ghost" onClick={closePicker}>
+                Close
+              </button>
+            </header>
+
+            {printLoading && <p className="muted">Loading printings from Scryfall…</p>}
+            {printError && <p className="error">{printError}</p>}
+
+            {!printLoading && printOptions.length > 0 && (
+              <div className="pimp-picker__grid">
+                {printOptions.map((opt) => {
+                  const selected = opt.id === editing.card.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      className={`pimp-picker__option${selected ? " pimp-picker__option--selected" : ""}`}
+                      onClick={() => applyPrinting(opt)}
+                      aria-pressed={selected}
+                    >
+                      <img src={getCardImage(opt)} alt="" />
+                      <span>
+                        <strong>{opt.set_name}</strong>
+                        <span>
+                          {opt.set?.toUpperCase()} #{opt.collector_number}
+                          {opt.full_art ? " · full art" : ""}
+                          {opt.border_color === "borderless" ? " · borderless" : ""}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {notes.length > 0 && (
         <details className="panel" style={{ marginTop: "1.25rem" }}>
           <summary style={{ cursor: "pointer", fontWeight: 600 }}>Change log ({notes.length})</summary>
           <ul>
-            {notes.map((n) => (
-              <li key={n}>{n}</li>
+            {notes.map((n, i) => (
+              <li key={`${i}-${n}`}>{n}</li>
             ))}
           </ul>
         </details>
