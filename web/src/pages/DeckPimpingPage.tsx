@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router";
-import { DeckActions } from "../components/DeckActions";
+import { Link, useSearchParams } from "react-router";
 import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
 import { toMoxfieldList, type DeckLine } from "../lib/moxfield";
@@ -42,8 +41,6 @@ export function DeckPimpingPage() {
   const [printLoading, setPrintLoading] = useState(false);
   const [printError, setPrintError] = useState<string | null>(null);
 
-  const cards = useMemo(() => picks.map((p) => p.card), [picks]);
-  const hero = cards[0];
   const editing = editingPick != null ? picks[editingPick] : null;
   const pct =
     progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
@@ -220,9 +217,17 @@ export function DeckPimpingPage() {
           {loading ? "Pimping… (Scryfall lookups)" : "Pimp my deck"}
         </button>
         {output && (
-          <button type="button" className="btn btn-secondary" onClick={() => void onCopy()}>
-            Copy output
-          </button>
+          <>
+            <Link className="btn btn-brass" to={`/bulk?list=${encodeURIComponent(output)}`}>
+              Price / purchase
+            </Link>
+            <button type="button" className="btn btn-secondary" onClick={() => void onCopy()}>
+              Copy output
+            </button>
+            <Link className="btn btn-secondary" to={`/proxy?list=${encodeURIComponent(output)}`}>
+              Proxy this list
+            </Link>
+          </>
         )}
       </div>
 
@@ -254,33 +259,9 @@ export function DeckPimpingPage() {
 
       {error && <p className="error">{error}</p>}
 
-      {output && <DeckActions list={output} />}
-
       {picks.length > 0 && (
         <section className="pimp-gallery" aria-label="Pimped printings">
           <p className="pimp-gallery__hint muted">Click a card to change its printing.</p>
-          {hero && (
-            <button
-              type="button"
-              className="pimp-hero"
-              onClick={() => void openPicker(0)}
-              aria-label={`Change printing for ${hero.name}`}
-            >
-              <img src={artCrop(hero)} alt="" className="pimp-hero__bg" />
-              <div className="pimp-hero__veil" />
-              <div className="pimp-hero__content">
-                <p className="pimp-hero__eyebrow">Pimped printing · click to change</p>
-                <h2>{hero.name}</h2>
-                <p>{printingLabel(hero)}</p>
-                <img
-                  className="pimp-hero__card"
-                  src={getCardImage(hero, "large")}
-                  alt=""
-                />
-              </div>
-            </button>
-          )}
-
           <div className="pimp-rail">
             {picks.map((pick, i) => (
               <button
