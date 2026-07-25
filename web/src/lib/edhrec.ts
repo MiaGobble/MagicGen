@@ -24,6 +24,31 @@ type EdhrecPage = {
   similar?: unknown;
 };
 
+type AverageDeckJson = {
+  description?: string;
+  deck?: Record<string, number> | string[];
+  animals?: unknown;
+};
+
+/** Official Commander bracket labels / EDHREC path slugs. */
+export const BRACKET_META: Record<number, { label: string; slug: string }> = {
+  1: { label: "Exhibition", slug: "exhibition" },
+  2: { label: "Core", slug: "core" },
+  3: { label: "Upgraded", slug: "upgraded" },
+  4: { label: "Optimized", slug: "optimized" },
+  5: { label: "cEDH", slug: "cedh" },
+};
+
+export function clampBracket(bracket: number): number {
+  const n = Math.round(Number(bracket));
+  if (!Number.isFinite(n)) return 3;
+  return Math.min(5, Math.max(1, n));
+}
+
+function bracketSlug(bracket: number): string {
+  return BRACKET_META[clampBracket(bracket)].slug;
+}
+
 function slugifyCommander(name: string): string {
   return name
     .toLowerCase()
@@ -43,19 +68,46 @@ export function edhrecUrl(commanderName: string): string {
   return `https://edhrec.com/commanders/${slugifyCommander(commanderName)}`;
 }
 
-export async function fetchEdhrecCommander(name: string): Promise<EdhrecPage> {
+export async function fetchEdhrecCommander(name: string, bracket?: number): Promise<EdhrecPage> {
   const slug = slugifyCommander(name);
+  if (bracket != null) {
+    const b = bracketSlug(bracket);
+    try {
+      return await scryfallFetch<EdhrecPage>(
+        `https://json.edhrec.com/pages/commanders/${slug}/${b}.json`,
+      );
+    } catch {
+      // Fall through to unfiltered commander page
+    }
+  }
   return scryfallFetch<EdhrecPage>(`https://json.edhrec.com/pages/commanders/${slug}.json`);
 }
 
-export async function fetchAverageDeckJson(name: string): Promise<{
-  description?: string;
-  deck?: Record<string, number> | string[];
-  animals?: unknown;
-} | null> {
+/**
+ * Prefer the bracket-specific average deck page when `bracket` is set.
+ * Falls back to the overall average if the bracket page is missing.
+ */
+export async function fetchAverageDeckJson(
+  name: string,
+  bracket?: number,
+): Promise<{ data: AverageDeckJson; bracketSpecific: boolean } | null> {
   const slug = slugifyCommander(name);
+  if (bracket != null) {
+    const b = bracketSlug(bracket);
+    try {
+      const data = await scryfallFetch<AverageDeckJson>(
+        `https://json.edhrec.com/pages/average-decks/${slug}/${b}.json`,
+      );
+      return { data, bracketSpecific: true };
+    } catch {
+      // Fall through to overall average
+    }
+  }
   try {
-    return await scryfallFetch(`https://json.edhrec.com/pages/average-decks/${slug}.json`);
+    const data = await scryfallFetch<AverageDeckJson>(
+      `https://json.edhrec.com/pages/average-decks/${slug}.json`,
+    );
+    return { data, bracketSpecific: false };
   } catch {
     return null;
   }
@@ -65,7 +117,6 @@ function isCommanderName(name: string, commander: ScryfallCard): boolean {
   const n = normalizeCardName(name);
   const cmd = normalizeCardName(commander.name);
   if (n === cmd) return true;
-  // Face names on DFC / partner-style titles
   for (const face of commander.card_faces ?? []) {
     if (normalizeCardName(face.name) === n) return true;
   }
@@ -94,7 +145,6 @@ function fitDeckSize(lines: DeckLine[], target: number, colorId: string[]): Deck
   let total = deck.reduce((s, l) => s + l.quantity, 0);
 
   if (total > target) {
-    // Remove excess from the end (least synergistic EDHREC order / added lands last)
     let over = total - target;
     for (let i = deck.length - 1; i >= 0 && over > 0; i--) {
       const take = Math.min(deck[i].quantity, over);
@@ -109,11 +159,9 @@ function fitDeckSize(lines: DeckLine[], target: number, colorId: string[]): Deck
     deck = deck.concat(basicLandsFor(colorId, target - total));
   }
 
-  // Final safety coalesce after land add
   deck = coalesceLines(deck);
   total = deck.reduce((s, l) => s + l.quantity, 0);
   if (total !== target) {
-    // Adjust one basic land line
     const landIdx = deck.findIndex((l) =>
       ["Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"].includes(l.name),
     );
@@ -128,52 +176,77 @@ function fitDeckSize(lines: DeckLine[], target: number, colorId: string[]): Deck
   return coalesceLines(deck);
 }
 
-/** Build an "average" deck from EDHREC top cards + basic lands. Always 100 cards (1 commander + 99). */
+function linesFromAverageDeck(avg: AverageDeckJson, commander: ScryfallCard): DeckLine[] {
+  const main: DeckLine[] = [];
+  if (!avg.deck) return main;
+
+  if (Array.isArray(avg.deck)) {
+    for (const entry of avg.deck) {
+      const m = String(entry).match(/^(\d+)\s+(.+)$/);
+      const qty = m ? Number(m[1]) : 1;
+      const name = m ? m[2] : String(entry);
+      if (isCommanderName(name, commander)) continue;
+      main.push({ quantity: qty, name, category: "Deck" });
+    }
+  } else {
+    for (const [name, qty] of Object.entries(avg.deck)) {
+      if (isCommanderName(name, commander)) continue;
+      main.push({ quantity: Number(qty) || 1, name, category: "Deck" });
+    }
+  }
+  return main;
+}
+
+async function assembleFromTopCards(
+  commander: ScryfallCard,
+  bracket: number,
+): Promise<DeckLine[]> {
+  const page = await fetchEdhrecCommander(commander.name.split(" // ")[0], bracket);
+  const lists = page.container?.json_dict?.cardlists ?? [];
+  const pool: string[] = [];
+  for (const list of lists) {
+    for (const card of list.cardviews ?? []) {
+      if (card.name && !isCommanderName(card.name, commander)) pool.push(card.name);
+    }
+  }
+
+  const unique = [...new Set(pool)];
+  const nonlandTarget = bracket >= 4 ? 62 : bracket <= 2 ? 55 : 58;
+  const picked = unique.slice(0, nonlandTarget);
+  const main: DeckLine[] = picked.map((name) => ({ quantity: 1, name, category: "Deck" }));
+  const landCount = Math.max(0, 99 - picked.length);
+  return main.concat(
+    basicLandsFor(commander.color_identity ?? [], landCount).map((l) => ({
+      ...l,
+      category: "Deck" as const,
+    })),
+  );
+}
+
+/** Build an "average" deck from EDHREC data for the selected bracket. Always 100 cards. */
 export async function generateAverageDeck(
   commander: ScryfallCard,
   bracket: number,
 ): Promise<{ list: string; lines: DeckLine[]; source: string }> {
   const colorId = commander.color_identity ?? [];
-  const avg = await fetchAverageDeckJson(commander.name.split(" // ")[0]);
+  const b = clampBracket(bracket);
+  const meta = BRACKET_META[b];
+  const commanderName = commander.name.split(" // ")[0];
 
+  const avg = await fetchAverageDeckJson(commanderName, b);
   let main: DeckLine[] = [];
+  let source: string;
 
-  if (avg?.deck) {
-    if (Array.isArray(avg.deck)) {
-      for (const entry of avg.deck) {
-        const m = String(entry).match(/^(\d+)\s+(.+)$/);
-        const qty = m ? Number(m[1]) : 1;
-        const name = m ? m[2] : String(entry);
-        if (isCommanderName(name, commander)) continue;
-        main.push({ quantity: qty, name, category: "Deck" });
-      }
-    } else {
-      for (const [name, qty] of Object.entries(avg.deck)) {
-        if (isCommanderName(name, commander)) continue;
-        main.push({ quantity: Number(qty) || 1, name, category: "Deck" });
-      }
-    }
+  if (avg?.data.deck) {
+    main = linesFromAverageDeck(avg.data, commander);
+    source = avg.bracketSpecific
+      ? `EDHREC average deck · Bracket ${b} (${meta.label})`
+      : `EDHREC average deck (overall; no Bracket ${b} sample)`;
   } else {
-    const page = await fetchEdhrecCommander(commander.name.split(" // ")[0]);
-    const lists = page.container?.json_dict?.cardlists ?? [];
-    const pool: string[] = [];
-    for (const list of lists) {
-      for (const card of list.cardviews ?? []) {
-        if (card.name && !isCommanderName(card.name, commander)) pool.push(card.name);
-      }
-    }
-
-    const unique = [...new Set(pool)];
-    const nonlandTarget = bracket >= 4 ? 62 : bracket <= 2 ? 55 : 58;
-    const picked = unique.slice(0, nonlandTarget);
-    for (const name of picked) {
-      main.push({ quantity: 1, name, category: "Deck" });
-    }
-    const landCount = Math.max(0, 99 - picked.length);
-    main = main.concat(basicLandsFor(colorId, landCount).map((l) => ({ ...l, category: "Deck" })));
+    main = await assembleFromTopCards(commander, b);
+    source = `EDHREC top cards · Bracket ${b} (${meta.label})`;
   }
 
-  // Never keep the commander in the main deck
   main = main.filter((l) => !isCommanderName(l.name, commander));
   main = fitDeckSize(main, 99, colorId);
 
@@ -188,11 +261,7 @@ export async function generateAverageDeck(
     throw new Error(`Deck size invariant failed: got ${total} cards (expected 100)`);
   }
 
-  return {
-    list,
-    lines,
-    source: avg ? "EDHREC average deck" : "EDHREC top cards (assembled average)",
-  };
+  return { list, lines, source };
 }
 
 function basicLandsFor(colorId: string[], count: number): DeckLine[] {

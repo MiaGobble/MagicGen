@@ -5,7 +5,7 @@ import { DeckActions } from "../components/DeckActions";
 import { ColorIdentity, ManaCost } from "../components/Mana";
 import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
-import { generateAverageDeck, edhrecUrl } from "../lib/edhrec";
+import { generateAverageDeck, edhrecUrl, BRACKET_META, clampBracket } from "../lib/edhrec";
 import {
   CARD_BACK_URL,
   getCardFaceImages,
@@ -30,7 +30,7 @@ export function RandomCommanderPage() {
   const [loading, setLoading] = useState(false);
   const [deck, setDeck] = useState<string | null>(null);
   const [deckSource, setDeckSource] = useState<string | null>(null);
-  const [bracket, setBracket] = useState(Number(params.get("bracket") || 3));
+  const [bracket, setBracket] = useState(clampBracket(Number(params.get("bracket") || 3)));
   const [deckLoading, setDeckLoading] = useState(false);
 
   const faceImages = card ? getCardFaceImages(card, "normal") : [];
@@ -49,7 +49,7 @@ export function RandomCommanderPage() {
         setFaceIndex(0);
         setDisplaySrc(getCardImage(c, "normal"));
         if (params.get("autodeck") === "1") {
-          const result = await generateAverageDeck(c, Number(params.get("bracket") || 3));
+          const result = await generateAverageDeck(c, clampBracket(Number(params.get("bracket") || 3)));
           if (!cancelled) {
             setDeck(result.list);
             setDeckSource(result.source);
@@ -217,12 +217,16 @@ export function RandomCommanderPage() {
                   {deckLoading ? "Building…" : "Generate deck"}
                 </button>
               </div>
-              <div className="field" style={{ marginTop: "0.75rem", maxWidth: 200 }}>
+              <div className="field" style={{ marginTop: "0.75rem", maxWidth: 260 }}>
                 <label htmlFor="bracket">Deck bracket</label>
-                <select id="bracket" value={bracket} onChange={(e) => setBracket(Number(e.target.value))}>
-                  {[1, 2, 3, 4, 5].map((b) => (
+                <select
+                  id="bracket"
+                  value={bracket}
+                  onChange={(e) => setBracket(clampBracket(Number(e.target.value)))}
+                >
+                  {([1, 2, 3, 4, 5] as const).map((b) => (
                     <option key={b} value={b}>
-                      Bracket {b}
+                      Bracket {b} · {BRACKET_META[b].label}
                     </option>
                   ))}
                 </select>
