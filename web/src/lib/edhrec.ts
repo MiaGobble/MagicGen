@@ -1,5 +1,5 @@
 import type { ScryfallCard } from "./scryfall";
-import { scryfallFetch } from "./scryfall";
+import { isAllowedEdhrecUrl } from "./safeUrl";
 import { toMoxfieldList, type DeckLine } from "./moxfield";
 
 type EdhrecCard = {
@@ -21,6 +21,7 @@ type EdhrecPage = {
       }>;
     };
   };
+  bracket_counts?: Record<string, number>;
   similar?: unknown;
 };
 
@@ -29,6 +30,70 @@ type AverageDeckJson = {
   deck?: Record<string, number> | string[];
   animals?: unknown;
 };
+
+export class EdhrecHttpError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message?: string) {
+    super(message || `EDHREC ${status}`);
+    this.name = "EdhrecHttpError";
+    this.status = status;
+  }
+
+  get isNotFound() {
+    // S3 missing keys often surface as 403 Forbidden (no public listing).
+    return this.status === 404 || this.status === 403;
+  }
+}
+
+/**
+ * EDHREC JSON fetch — separate from Scryfall's rate-limit queue.
+ * Avoid custom headers so browsers skip CORS preflight (S3 403s are flaky with preflight).
+ */
+async function edhrecFetch<T>(url: string, opts?: { retries?: number }): Promise<T> {
+  if (!isAllowedEdhrecUrl(url)) throw new Error("Blocked disallowed EDHREC URL");
+  const retries = opts?.retries ?? 1;
+  let attempt = 0;
+  while (true) {
+    try {
+      const res = await fetch(url, { mode: "cors", credentials: "omit" });
+      if (!res.ok) {
+        throw new EdhrecHttpError(res.status, `EDHREC ${res.status}`);
+      }
+      return (await res.json()) as T;
+    } catch (err) {
+      if (err instanceof EdhrecHttpError) throw err;
+      const transient =
+        err instanceof TypeError ||
+        (err instanceof Error &&
+          /failed to fetch|networkerror|load failed|fetch failed/i.test(err.message));
+      if (transient && attempt < retries) {
+        attempt += 1;
+        await new Promise((r) => setTimeout(r, 400 * attempt));
+        continue;
+      }
+      if (transient) throw new Error("network error, try again");
+      throw err;
+    }
+  }
+}
+
+/** Optional page: no retries — missing bracket paths should fail instantly. */
+async function edhrecFetchOptional<T>(url: string): Promise<T | null> {
+  try {
+    return await edhrecFetch<T>(url, { retries: 0 });
+  } catch (err) {
+    if (err instanceof EdhrecHttpError && err.isNotFound) return null;
+    // CORS-masked errors on missing S3 objects also look like TypeError — treat as missing.
+    if (
+      err instanceof TypeError ||
+      (err instanceof Error && /failed to fetch|network error/i.test(err.message))
+    ) {
+      return null;
+    }
+    return null;
+  }
+}
 
 /** Official Commander bracket labels / EDHREC path slugs. */
 export const BRACKET_META: Record<number, { label: string; slug: string }> = {
@@ -68,19 +133,113 @@ export function edhrecUrl(commanderName: string): string {
   return `https://edhrec.com/commanders/${slugifyCommander(commanderName)}`;
 }
 
+/** Deck counts per Commander bracket from EDHREC (keys 1–5). */
+export async function fetchBracketCounts(
+  name: string,
+): Promise<Record<number, number> | null> {
+  const slug = slugifyCommander(name.split(" // ")[0]);
+  try {
+    const page = await edhrecFetch<EdhrecPage>(
+      `https://json.edhrec.com/pages/commanders/${slug}.json`,
+      { retries: 1 },
+    );
+    const raw = page.bracket_counts;
+    if (!raw) return null;
+    const out: Record<number, number> = {};
+    for (const [k, v] of Object.entries(raw)) {
+      const n = Number(k);
+      if (n >= 1 && n <= 5) out[n] = Number(v) || 0;
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * True when EDHREC shows meaningful play for this commander in `bracket`.
+ * Bracket 5 (cEDH) is intentionally strict — fringe “tagged cEDH” decks don’t count.
+ */
+export function fitsBracketCounts(
+  counts: Record<number, number> | null | undefined,
+  bracket: number,
+): boolean {
+  if (!counts) return false;
+  const b = clampBracket(bracket);
+  const n = counts[b] ?? 0;
+  if (n <= 0) return false;
+
+  const total = Object.values(counts).reduce((s, v) => s + v, 0);
+  if (total <= 0) return false;
+
+  // Absolute floor before we even look at share.
+  const minAbs: Record<number, number> = { 1: 5, 2: 12, 3: 20, 4: 40, 5: 200 };
+  if (n < (minAbs[b] ?? 10)) return false;
+
+  const share = n / total;
+  // Either a real share of this commander’s decks, or enough absolute volume that
+  // they’re established even if also popular in lower brackets (e.g. Kenrith).
+  const shareFloor: Record<number, number> = { 1: 0.03, 2: 0.05, 3: 0.08, 4: 0.12, 5: 0.2 };
+  const strongAbs: Record<number, number> = { 1: 25, 2: 60, 3: 100, 4: 200, 5: 500 };
+  return share >= (shareFloor[b] ?? 0.05) || n >= (strongAbs[b] ?? 50);
+}
+
+export async function commanderUsedInBracket(
+  name: string,
+  bracket: number,
+  cache?: Map<string, Record<number, number> | null>,
+): Promise<boolean> {
+  const key = normalizeCardName(name);
+  let counts: Record<number, number> | null;
+  if (cache?.has(key)) {
+    counts = cache.get(key) ?? null;
+  } else {
+    counts = await fetchBracketCounts(name);
+    cache?.set(key, counts);
+  }
+  return fitsBracketCounts(counts, bracket);
+}
+
+/** Popular commander names from EDHREC week/month/year lists (deduped). */
+export async function fetchPopularCommanderNames(): Promise<string[]> {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  for (const period of ["week", "month", "year"] as const) {
+    try {
+      const page = await edhrecFetch<{
+        container?: {
+          json_dict?: {
+            cardlists?: Array<{ cardviews?: Array<{ name?: string }> }>;
+          };
+        };
+      }>(`https://json.edhrec.com/pages/commanders/${period}.json`, { retries: 1 });
+      for (const list of page.container?.json_dict?.cardlists ?? []) {
+        for (const card of list.cardviews ?? []) {
+          const name = card.name?.trim();
+          if (!name) continue;
+          const key = normalizeCardName(name);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          names.push(name);
+        }
+      }
+    } catch {
+      // Optional enrichment — ignore period failures
+    }
+  }
+  return names;
+}
+
 export async function fetchEdhrecCommander(name: string, bracket?: number): Promise<EdhrecPage> {
   const slug = slugifyCommander(name);
   if (bracket != null) {
     const b = bracketSlug(bracket);
-    try {
-      return await scryfallFetch<EdhrecPage>(
-        `https://json.edhrec.com/pages/commanders/${slug}/${b}.json`,
-      );
-    } catch {
-      // Fall through to unfiltered commander page
-    }
+    const bracketed = await edhrecFetchOptional<EdhrecPage>(
+      `https://json.edhrec.com/pages/commanders/${slug}/${b}.json`,
+    );
+    if (bracketed) return bracketed;
   }
-  return scryfallFetch<EdhrecPage>(`https://json.edhrec.com/pages/commanders/${slug}.json`);
+  return edhrecFetch<EdhrecPage>(`https://json.edhrec.com/pages/commanders/${slug}.json`);
 }
 
 /**
@@ -94,18 +253,15 @@ export async function fetchAverageDeckJson(
   const slug = slugifyCommander(name);
   if (bracket != null) {
     const b = bracketSlug(bracket);
-    try {
-      const data = await scryfallFetch<AverageDeckJson>(
-        `https://json.edhrec.com/pages/average-decks/${slug}/${b}.json`,
-      );
-      return { data, bracketSpecific: true };
-    } catch {
-      // Fall through to overall average
-    }
+    const bracketed = await edhrecFetchOptional<AverageDeckJson>(
+      `https://json.edhrec.com/pages/average-decks/${slug}/${b}.json`,
+    );
+    if (bracketed?.deck) return { data: bracketed, bracketSpecific: true };
   }
   try {
-    const data = await scryfallFetch<AverageDeckJson>(
+    const data = await edhrecFetch<AverageDeckJson>(
       `https://json.edhrec.com/pages/average-decks/${slug}.json`,
+      { retries: 2 },
     );
     return { data, bracketSpecific: false };
   } catch {
@@ -243,8 +399,18 @@ export async function generateAverageDeck(
       ? `EDHREC average deck · Bracket ${b} (${meta.label})`
       : `EDHREC average deck (overall; no Bracket ${b} sample)`;
   } else {
-    main = await assembleFromTopCards(commander, b);
-    source = `EDHREC top cards · Bracket ${b} (${meta.label})`;
+    try {
+      main = await assembleFromTopCards(commander, b);
+      source = `EDHREC top cards · Bracket ${b} (${meta.label})`;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      if (/network error/i.test(msg)) {
+        throw new Error(
+          `Could not reach EDHREC for Bracket ${b} (${meta.label}). Check your connection and try again.`,
+        );
+      }
+      throw err;
+    }
   }
 
   main = main.filter((l) => !isCommanderName(l.name, commander));

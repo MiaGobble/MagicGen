@@ -514,6 +514,23 @@ textarea {
   margin-top: 1rem;
 }
 
+.actions--with-progress {
+  align-items: center;
+}
+
+.progress-inline {
+  flex: 1 1 12rem;
+  min-width: 10rem;
+  max-width: 22rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.progress-inline__label {
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
+
 .muted {
   color: var(--ink-soft);
 }

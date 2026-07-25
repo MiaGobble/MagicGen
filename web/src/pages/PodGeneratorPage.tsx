@@ -4,8 +4,9 @@ import { CommanderFilters, DEFAULT_FILTERS, type FilterState } from "../componen
 import { ColorIdentity } from "../components/Mana";
 import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
+import { BRACKET_META, clampBracket } from "../lib/edhrec";
 import { getCardImage } from "../lib/scryfall";
-import { generatePod, type PodSeat } from "../lib/pod";
+import { generatePod, type PodProgress, type PodSeat } from "../lib/pod";
 
 export function PodGeneratorPage() {
   const { toast } = useToast();
@@ -16,6 +17,7 @@ export function PodGeneratorPage() {
   const [pod, setPod] = useState<PodSeat[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<PodProgress | null>(null);
 
   function updateSeed(index: number, value: string) {
     setSeeds((prev) => {
@@ -29,6 +31,7 @@ export function PodGeneratorPage() {
     setLoading(true);
     setError(null);
     setPod(null);
+    setProgress({ done: 0, total: players + 1, label: "Finding commanders…" });
     try {
       const seats = await generatePod({
         players,
@@ -38,6 +41,7 @@ export function PodGeneratorPage() {
         set: filters.set || undefined,
         partners: filters.partners,
         seeded: seeds.slice(0, players),
+        onProgress: setProgress,
       });
       setPod(seats);
       toast(`Pod ready (${seats.length} seats)`, "success");
@@ -48,8 +52,12 @@ export function PodGeneratorPage() {
       toast("Pod generation failed", "error");
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   }
+
+  const progressPct =
+    progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
     <div className="tool-page container">
@@ -96,9 +104,16 @@ export function PodGeneratorPage() {
               appearing on nearly every deck.
             </li>
             <li>
-              <strong>Roles &amp; bracket.</strong> Seat labels (Aggro pressure, Interaction /
-              control, etc.) rotate for flavor. Bracket is passed through for deck links but is not a
-              hard power filter in matching.
+              <strong>Bracket filter.</strong> Unseeded seats (and partners) must show meaningful
+              EDHREC play in the selected Commander bracket via{" "}
+              <code>bracket_counts</code>. Bracket 5 (cEDH) requires a high deck count and either a
+              strong cEDH share or established volume — fringe “tagged cEDH” commanders are skipped.
+              High brackets also prefer EDHREC-popular commanders and efficient / partner-capable
+              profiles. Seeded names are kept as-is.
+            </li>
+            <li>
+              <strong>Roles.</strong> Seat labels (Aggro pressure, Interaction / control, etc.)
+              rotate for flavor.
             </li>
             <li>
               <strong>Randomness.</strong> Unseeded picks use Scryfall’s random endpoint, so
@@ -121,10 +136,14 @@ export function PodGeneratorPage() {
         </div>
         <div className="field">
           <label htmlFor="podBracket">Bracket</label>
-          <select id="podBracket" value={bracket} onChange={(e) => setBracket(Number(e.target.value))}>
-            {[1, 2, 3, 4, 5].map((b) => (
+          <select
+            id="podBracket"
+            value={bracket}
+            onChange={(e) => setBracket(clampBracket(Number(e.target.value)))}
+          >
+            {([1, 2, 3, 4, 5] as const).map((b) => (
               <option key={b} value={b}>
-                Bracket {b}
+                Bracket {b} · {BRACKET_META[b].label}
               </option>
             ))}
           </select>
@@ -151,10 +170,28 @@ export function PodGeneratorPage() {
         </div>
       </section>
 
-      <div className="actions">
+      <div className="actions actions--with-progress">
         <button type="button" className="btn btn-primary" onClick={onGenerate} disabled={loading}>
           {loading ? "Matching…" : "Generate pod"}
         </button>
+        {loading && progress && (
+          <div
+            className="progress-inline"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={progress.total || 100}
+            aria-valuenow={progress.done}
+            aria-label="Pod generation progress"
+          >
+            <div className="progress-track">
+              <div
+                className={`progress-fill${progressPct < 100 ? " progress-fill--pulse" : ""}`}
+                style={{ width: `${Math.max(progressPct, 8)}%` }}
+              />
+            </div>
+            <span className="progress-inline__label muted">{progress.label}</span>
+          </div>
+        )}
       </div>
 
       {error && <p className="error">{error}</p>}
