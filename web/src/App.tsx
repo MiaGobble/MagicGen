@@ -11,6 +11,7 @@ import { RandomCommanderPage } from "./pages/RandomCommanderPage";
 import { SleeveColorPage } from "./pages/SleeveColorPage";
 import { DiceColorPage } from "./pages/DiceColorPage";
 import { PackWarsPage } from "./pages/PackWarsPage";
+import { BudgetDeckPage } from "./pages/BudgetDeckPage";
 import { SuppliesPage } from "./pages/SuppliesPage";
 
 // Vite BASE_URL always ends with "/"; React Router basename must not.
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="commander" element={<RandomCommanderPage />} />
           <Route path="pod" element={<PodGeneratorPage />} />
           <Route path="pimp" element={<DeckPimpingPage />} />
+          <Route path="budget" element={<BudgetDeckPage />} />
           <Route path="booster" element={<BoosterGenPage />} />
           <Route path="pack-wars" element={<PackWarsPage />} />
           <Route path="proxy" element={<ProxyToolsPage />} />

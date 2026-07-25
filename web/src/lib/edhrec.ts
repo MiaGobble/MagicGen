@@ -243,6 +243,18 @@ export async function fetchEdhrecCommander(name: string, bracket?: number): Prom
 }
 
 /**
+ * Prefer EDHREC's budget commander recommendations; fall back to the main page.
+ */
+export async function fetchEdhrecCommanderBudget(name: string): Promise<EdhrecPage> {
+  const slug = slugifyCommander(name.split(" // ")[0]);
+  const budgeted = await edhrecFetchOptional<EdhrecPage>(
+    `https://json.edhrec.com/pages/commanders/${slug}/budget.json`,
+  );
+  if (budgeted?.container?.json_dict?.cardlists?.length) return budgeted;
+  return fetchEdhrecCommander(name);
+}
+
+/**
  * Prefer the bracket-specific average deck page when `bracket` is set.
  * Returns null when that bracket page is missing (no overall fallback).
  */
@@ -268,6 +280,191 @@ export async function fetchAverageDeckJson(
   } catch {
     return null;
   }
+}
+
+/** EDHREC average-decks budget list (often shorter than 99; names only). */
+export async function fetchBudgetAverageDeckNames(name: string): Promise<string[]> {
+  const slug = slugifyCommander(name.split(" // ")[0]);
+  const page = await edhrecFetchOptional<AverageDeckJson>(
+    `https://json.edhrec.com/pages/average-decks/${slug}/budget.json`,
+  );
+  if (!page?.deck) return [];
+  const names: string[] = [];
+  if (Array.isArray(page.deck)) {
+    for (const entry of page.deck) {
+      const m = String(entry).match(/^(\d+)\s+(.+)$/);
+      names.push((m ? m[2] : String(entry)).trim());
+    }
+  } else {
+    names.push(...Object.keys(page.deck));
+  }
+  return names.filter(Boolean);
+}
+
+export type EdhrecPoolCard = {
+  name: string;
+  synergy: number;
+  numDecks: number;
+  header: string;
+  /** Appears on the target bracket’s EDHREC page or average deck. */
+  inBracket: boolean;
+};
+
+const SKIP_POOL_HEADERS = /game\s*changers|new\s*cards/i;
+
+/**
+ * Flatten EDHREC cardlists into a ranked synergy pool.
+ * Skips Game Changers (and New Cards) unless `includeGameChangers` is set.
+ */
+export function edhrecCardPool(
+  page: EdhrecPage,
+  opts?: { includeGameChangers?: boolean },
+): EdhrecPoolCard[] {
+  const byName = new Map<string, EdhrecPoolCard>();
+  const includeGc = Boolean(opts?.includeGameChangers);
+
+  for (const list of page.container?.json_dict?.cardlists ?? []) {
+    const header = list.header?.trim() || "Cards";
+    if (!includeGc && SKIP_POOL_HEADERS.test(header)) continue;
+    for (const card of list.cardviews ?? []) {
+      const name = card.name?.trim();
+      if (!name) continue;
+      const key = normalizeCardName(name);
+      const synergy = Number(card.synergy) || 0;
+      const numDecks = Number(card.num_decks) || 0;
+      const existing = byName.get(key);
+      if (!existing || synergy > existing.synergy || (synergy === existing.synergy && numDecks > existing.numDecks)) {
+        byName.set(key, {
+          name: name.split(" // ")[0],
+          synergy,
+          numDecks,
+          header,
+          inBracket: false,
+        });
+      }
+    }
+  }
+
+  return [...byName.values()].sort((a, b) => {
+    if (b.synergy !== a.synergy) return b.synergy - a.synergy;
+    return b.numDecks - a.numDecks;
+  });
+}
+
+function namesFromAverageDeck(avg: AverageDeckJson): string[] {
+  if (!avg.deck) return [];
+  if (Array.isArray(avg.deck)) {
+    return avg.deck
+      .map((entry) => {
+        const m = String(entry).match(/^(\d+)\s+(.+)$/);
+        return (m ? m[2] : String(entry)).trim();
+      })
+      .filter(Boolean);
+  }
+  return Object.keys(avg.deck);
+}
+
+/**
+ * Build a replacement pool biased to a target Commander bracket.
+ * Bracket page + average deck are preferred; lower brackets also pull budget fillers.
+ */
+export async function fetchCheapEdhrecPool(
+  commanderName: string,
+  bracket = 3,
+): Promise<EdhrecPoolCard[]> {
+  const b = clampBracket(bracket);
+  const cmdKey = normalizeCardName(commanderName);
+  const byName = new Map<string, EdhrecPoolCard>();
+
+  const upsert = (card: EdhrecPoolCard) => {
+    const key = normalizeCardName(card.name);
+    if (key === cmdKey) return;
+    const existing = byName.get(key);
+    if (!existing) {
+      byName.set(key, { ...card });
+      return;
+    }
+    const next: EdhrecPoolCard = {
+      ...existing,
+      inBracket: existing.inBracket || card.inBracket,
+    };
+    if (
+      card.synergy > next.synergy ||
+      (card.synergy === next.synergy && card.numDecks > next.numDecks)
+    ) {
+      next.name = card.name;
+      next.synergy = card.synergy;
+      next.numDecks = card.numDecks;
+      next.header = card.header;
+    }
+    byName.set(key, next);
+  };
+
+  // —— Target bracket recommendations ——
+  try {
+    const bracketPage = await fetchEdhrecCommander(commanderName, b);
+    for (const c of edhrecCardPool(bracketPage, { includeGameChangers: b >= 5 })) {
+      upsert({ ...c, inBracket: true });
+    }
+  } catch {
+    // fall through to budget / overall
+  }
+
+  const avg = await fetchAverageDeckJson(commanderName, b);
+  if (avg?.bracketSpecific) {
+    for (const name of namesFromAverageDeck(avg.data)) {
+      upsert({
+        name: name.split(" // ")[0],
+        synergy: 0.01,
+        numDecks: 1,
+        header: `Bracket ${b} average`,
+        inBracket: true,
+      });
+    }
+  }
+
+  // —— Budget fillers (stronger for lower brackets) ——
+  if (b <= 4) {
+    try {
+      const budgetPage = await fetchEdhrecCommanderBudget(commanderName);
+      for (const c of edhrecCardPool(budgetPage)) {
+        upsert({ ...c, inBracket: false });
+      }
+    } catch {
+      // optional
+    }
+    try {
+      for (const name of await fetchBudgetAverageDeckNames(commanderName)) {
+        upsert({
+          name: name.split(" // ")[0],
+          synergy: 0,
+          numDecks: 0,
+          header: "Budget average",
+          inBracket: false,
+        });
+      }
+    } catch {
+      // optional
+    }
+  }
+
+  // Overall page fallback if bracket data was thin
+  if (byName.size < 20) {
+    try {
+      const overall = await fetchEdhrecCommander(commanderName);
+      for (const c of edhrecCardPool(overall, { includeGameChangers: b >= 5 })) {
+        upsert({ ...c, inBracket: false });
+      }
+    } catch {
+      // optional
+    }
+  }
+
+  return [...byName.values()].sort((a, b) => {
+    if (a.inBracket !== b.inBracket) return a.inBracket ? -1 : 1;
+    if (b.synergy !== a.synergy) return b.synergy - a.synergy;
+    return b.numDecks - a.numDecks;
+  });
 }
 
 function isCommanderName(name: string, commander: ScryfallCard): boolean {

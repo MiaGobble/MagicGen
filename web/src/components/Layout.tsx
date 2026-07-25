@@ -6,6 +6,7 @@ const LINKS = [
   { to: "/commander", label: "Random commander" },
   { to: "/pod", label: "Pod generator" },
   { to: "/pimp", label: "Deck pimping" },
+  { to: "/budget", label: "Budget deck" },
   { to: "/booster", label: "Booster generator" },
   { to: "/pack-wars", label: "Pack Wars generator" },
   { to: "/proxy", label: "Proxy tools" },

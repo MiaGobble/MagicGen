@@ -19,6 +19,11 @@ const TOOLS = [
     blurb: "Upgrade a Moxfield list to flashier printings.",
   },
   {
+    to: "/budget",
+    title: "Budget deck",
+    blurb: "Cut a commander list down to a max Scryfall price with EDHREC swaps.",
+  },
+  {
     to: "/booster",
     title: "Booster generator",
     blurb: "Craft custom draft packs with rarity queries.",
