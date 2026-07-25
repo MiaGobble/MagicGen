@@ -70,23 +70,21 @@ function titleMatchesFinish(title: string, finish: DiceFinish): boolean {
 function titleHasConflictingFinish(title: string, finish: DiceFinish): boolean {
   if (finish === "any") return false;
   const t = title.toLowerCase();
-  const allowed = new Set(FINISH_TITLE_TERMS[finish]);
   for (const [id, terms] of Object.entries(FINISH_TITLE_TERMS) as Array<
     [Exclude<DiceFinish, "any">, string[]]
   >) {
     if (id === finish) continue;
-    // Opaque vs translucent are the main hard conflicts; patterned lines conflict with opaque
     if (finish === "opaque" && (id === "translucent" || id === "gemini" || id === "borealis")) {
       if (terms.some((term) => t.includes(term))) return true;
     }
     if (finish === "translucent" && id === "opaque" && /\bopaque\b/.test(t)) return true;
-    if (finish !== "opaque" && finish !== "translucent" && id !== finish) {
-      if (terms.some((term) => t.includes(term) && !allowed.has(term))) {
-        // Only conflict when another named line is explicit
-        if (["gemini", "borealis", "vortex", "luminary", "speckled", "glitter"].includes(id)) {
-          if (terms.some((term) => t.includes(term))) return true;
-        }
-      }
+    if (
+      finish !== "opaque" &&
+      finish !== "translucent" &&
+      ["gemini", "borealis", "vortex", "luminary", "speckled", "glitter"].includes(id) &&
+      terms.some((term) => t.includes(term))
+    ) {
+      return true;
     }
   }
   return false;
@@ -109,65 +107,65 @@ type DiceCatalogEntry = {
  */
 const DICE_CATALOG: DiceCatalogEntry[] = [
   // —— Reds ——
-  { name: "Red", brand: "Chessex", hex: "#C62828", asin: "B0006O81JA", family: "red", kind: "polyhedral", premium: true },
-  { name: "Blood Red", brand: "Chessex", hex: "#6B0F12", asin: "B0006O81JA", family: "red", kind: "polyhedral", premium: true },
-  { name: "Ruby", brand: "Chessex", hex: "#C41E3A", asin: "B07GXZQY8L", family: "red", kind: "polyhedral", premium: true },
+  { name: "Red", brand: "Chessex", hex: "#C62828", asin: "B0006O81JA", family: "red", kind: "polyhedral", finish: "opaque", premium: true },
+  { name: "Blood Red", brand: "Chessex", hex: "#6B0F12", asin: "B0006O81JA", family: "red", kind: "polyhedral", finish: "opaque", premium: true },
+  { name: "Ruby", brand: "Chessex", hex: "#E53935", asin: "B07GXZQY8L", family: "red", kind: "polyhedral", finish: "translucent", premium: true },
   // —— Orange / brown ——
-  { name: "Orange", brand: "Chessex", hex: "#EF6C00", asin: "B0006O81K4", family: "orange", kind: "polyhedral", premium: true },
-  { name: "Copper", brand: "Chessex", hex: "#A05A2C", asin: "B0006O81K4", family: "brown", kind: "polyhedral", premium: true },
-  { name: "Brown", brand: "Chessex", hex: "#6D4C41", asin: "B0015ZSS5A", family: "brown", kind: "polyhedral", premium: true },
+  { name: "Orange", brand: "Chessex", hex: "#EF6C00", asin: "B0006O81K4", family: "orange", kind: "polyhedral", finish: "opaque", premium: true },
+  { name: "Copper", brand: "Chessex", hex: "#A05A2C", asin: "B0006O81K4", family: "brown", kind: "polyhedral", finish: "opaque", premium: true },
+  { name: "Brown", brand: "Chessex", hex: "#6D4C41", asin: "B0015ZSS5A", family: "brown", kind: "polyhedral", finish: "opaque", premium: true },
   // —— Yellow / gold ——
-  { name: "Yellow", brand: "Chessex", hex: "#FBC02D", asin: "B0006O81KE", family: "yellow", kind: "polyhedral", premium: true },
-  { name: "Gold", brand: "Chessex", hex: "#C9A227", asin: "B0006O81KE", family: "yellow", kind: "polyhedral", premium: true },
-  { name: "Ivory", brand: "Chessex", hex: "#FFF3E0", asin: "B0006O81I6", family: "neutral", kind: "polyhedral", premium: true },
+  { name: "Yellow", brand: "Chessex", hex: "#FBC02D", asin: "B0006O81KE", family: "yellow", kind: "polyhedral", finish: "opaque", premium: true },
+  { name: "Gold", brand: "Chessex", hex: "#C9A227", asin: "B0006O81KE", family: "yellow", kind: "polyhedral", finish: "opaque", premium: true },
+  { name: "Ivory", brand: "Chessex", hex: "#FFF3E0", asin: "B0006O81I6", family: "neutral", kind: "polyhedral", finish: "opaque", premium: true },
   // —— Greens ——
-  { name: "Green", brand: "Chessex", hex: "#2E7D32", asin: "B0006O81KO", family: "green", kind: "polyhedral", premium: true },
-  { name: "Light Green", brand: "Chessex", hex: "#8BC34A", asin: "B0006O81KO", family: "green", kind: "polyhedral", premium: true },
-  { name: "Forest", brand: "Chessex", hex: "#1B5E20", asin: "B0006O81KO", family: "green", kind: "polyhedral", premium: true },
-  { name: "Jade", brand: "Chessex", hex: "#00A86B", asin: "B07GXZQY8L", family: "green", kind: "polyhedral", premium: true },
+  { name: "Green", brand: "Chessex", hex: "#2E7D32", asin: "B0006O81KO", family: "green", kind: "polyhedral", finish: "opaque", premium: true },
+  { name: "Light Green", brand: "Chessex", hex: "#8BC34A", asin: "B0006O81KO", family: "green", kind: "polyhedral", finish: "opaque", premium: true },
+  { name: "Forest", brand: "Chessex", hex: "#1B5E20", asin: "B0006O81KO", family: "green", kind: "polyhedral", finish: "opaque", premium: true },
+  { name: "Jade", brand: "Chessex", hex: "#26A69A", asin: "B07GXZQY8L", family: "teal", kind: "polyhedral", finish: "translucent", premium: true },
   // —— Teal ——
-  { name: "Teal", brand: "Chessex", hex: "#00897B", asin: "B07N8SJ8XQ", family: "teal", kind: "polyhedral", premium: true },
-  { name: "Turquoise", brand: "Chessex", hex: "#26A69A", asin: "B07N8SJ8XQ", family: "teal", kind: "polyhedral", premium: true },
+  { name: "Teal", brand: "Chessex", hex: "#00897B", asin: "B07N8SJ8XQ", family: "teal", kind: "polyhedral", finish: "opaque", premium: true },
+  { name: "Turquoise", brand: "Chessex", hex: "#26A69A", asin: "B07N8SJ8XQ", family: "teal", kind: "polyhedral", finish: "opaque", premium: true },
   // —— Blues ——
-  { name: "Blue", brand: "Chessex", hex: "#1565C0", asin: "B0006O81KY", family: "blue", kind: "polyhedral", premium: true },
-  { name: "Light Blue", brand: "Chessex", hex: "#4FC3F7", asin: "B0006O81KY", family: "blue", kind: "polyhedral", premium: true },
-  { name: "Navy", brand: "Chessex", hex: "#0A2540", asin: "B0006O81KY", family: "blue", kind: "polyhedral", premium: true },
-  { name: "Sapphire", brand: "Chessex", hex: "#0D47A1", asin: "B07GXZQY8L", family: "blue", kind: "polyhedral", premium: true },
+  { name: "Blue", brand: "Chessex", hex: "#1565C0", asin: "B0006O81KY", family: "blue", kind: "polyhedral", finish: "opaque", premium: true },
+  { name: "Light Blue", brand: "Chessex", hex: "#4FC3F7", asin: "B0006O81KY", family: "blue", kind: "polyhedral", finish: "opaque", premium: true },
+  { name: "Navy", brand: "Chessex", hex: "#0A2540", asin: "B0006O81KY", family: "blue", kind: "polyhedral", finish: "opaque", premium: true },
+  { name: "Sapphire", brand: "Chessex", hex: "#1E88E5", asin: "B07GXZQY8L", family: "blue", kind: "polyhedral", finish: "translucent", premium: true },
   // —— Purples ——
-  { name: "Purple", brand: "Chessex", hex: "#6A1B9A", asin: "B0006O81L8", family: "purple", kind: "polyhedral", premium: true },
-  { name: "Violet", brand: "Chessex", hex: "#7B1FA2", asin: "B0006O81L8", family: "purple", kind: "polyhedral", premium: true },
-  { name: "Amethyst", brand: "Chessex", hex: "#9C27B0", asin: "B07GXZQY8L", family: "purple", kind: "polyhedral", premium: true },
+  { name: "Purple", brand: "Chessex", hex: "#6A1B9A", asin: "B0006O81L8", family: "purple", kind: "polyhedral", finish: "opaque", premium: true },
+  { name: "Violet", brand: "Chessex", hex: "#7B1FA2", asin: "B0006O81L8", family: "purple", kind: "polyhedral", finish: "opaque", premium: true },
+  { name: "Amethyst", brand: "Chessex", hex: "#AB47BC", asin: "B07GXZQY8L", family: "purple", kind: "polyhedral", finish: "translucent", premium: true },
   // —— Pinks ——
-  { name: "Pink", brand: "Chessex", hex: "#EC407A", asin: "B0015ZSS6E", family: "pink", kind: "polyhedral", premium: true },
-  { name: "Rose", brand: "Chessex", hex: "#E91E63", asin: "B0015ZSS6E", family: "pink", kind: "polyhedral", premium: true },
+  { name: "Pink", brand: "Chessex", hex: "#EC407A", asin: "B0015ZSS6E", family: "pink", kind: "polyhedral", finish: "opaque", premium: true },
+  { name: "Rose", brand: "Chessex", hex: "#E91E63", asin: "B0015ZSS6E", family: "pink", kind: "polyhedral", finish: "opaque", premium: true },
   // —— Neutrals ——
-  { name: "Black", brand: "Chessex", hex: "#1A1A1A", asin: "B0006O81HM", family: "neutral", kind: "polyhedral", premium: true },
-  { name: "White", brand: "Chessex", hex: "#FAFAFA", asin: "B0006O81I6", family: "neutral", kind: "polyhedral", premium: true },
-  { name: "Gray", brand: "Chessex", hex: "#78909C", asin: "B0015ZSS64", family: "neutral", kind: "polyhedral", premium: true },
-  { name: "Silver", brand: "Chessex", hex: "#B0BEC5", asin: "B0015ZSS64", family: "neutral", kind: "polyhedral", premium: true },
+  { name: "Black", brand: "Chessex", hex: "#1A1A1A", asin: "B0006O81HM", family: "neutral", kind: "polyhedral", finish: "opaque", premium: true },
+  { name: "White", brand: "Chessex", hex: "#FAFAFA", asin: "B0006O81I6", family: "neutral", kind: "polyhedral", finish: "opaque", premium: true },
+  { name: "Gray", brand: "Chessex", hex: "#78909C", asin: "B0015ZSS64", family: "neutral", kind: "polyhedral", finish: "opaque", premium: true },
+  { name: "Silver", brand: "Chessex", hex: "#B0BEC5", asin: "B0015ZSS64", family: "neutral", kind: "polyhedral", finish: "opaque", premium: true },
   // —— Spindown D20 (MTG life counters) ——
-  { name: "Black", brand: "Wizards", hex: "#1A1A1A", asin: "B08GQQZJ8Y", family: "neutral", kind: "d20", premium: false },
-  { name: "White", brand: "Wizards", hex: "#FAFAFA", asin: "B08GQQZJ8Y", family: "neutral", kind: "d20", premium: false },
-  { name: "Red", brand: "Wizards", hex: "#C62828", asin: "B08GQQZJ8Y", family: "red", kind: "d20", premium: false },
-  { name: "Blue", brand: "Wizards", hex: "#1565C0", asin: "B08GQQZJ8Y", family: "blue", kind: "d20", premium: false },
-  { name: "Green", brand: "Wizards", hex: "#2E7D32", asin: "B08GQQZJ8Y", family: "green", kind: "d20", premium: false },
-  { name: "Purple", brand: "Wizards", hex: "#6A1B9A", asin: "B08GQQZJ8Y", family: "purple", kind: "d20", premium: false },
+  { name: "Black", brand: "Wizards", hex: "#1A1A1A", asin: "B08GQQZJ8Y", family: "neutral", kind: "d20", finish: "opaque", premium: false },
+  { name: "White", brand: "Wizards", hex: "#FAFAFA", asin: "B08GQQZJ8Y", family: "neutral", kind: "d20", finish: "opaque", premium: false },
+  { name: "Red", brand: "Wizards", hex: "#C62828", asin: "B08GQQZJ8Y", family: "red", kind: "d20", finish: "opaque", premium: false },
+  { name: "Blue", brand: "Wizards", hex: "#1565C0", asin: "B08GQQZJ8Y", family: "blue", kind: "d20", finish: "opaque", premium: false },
+  { name: "Green", brand: "Wizards", hex: "#2E7D32", asin: "B08GQQZJ8Y", family: "green", kind: "d20", finish: "opaque", premium: false },
+  { name: "Purple", brand: "Wizards", hex: "#6A1B9A", asin: "B08GQQZJ8Y", family: "purple", kind: "d20", finish: "opaque", premium: false },
   // —— D6 blocks ——
-  { name: "Black", brand: "Chessex", hex: "#1A1A1A", asin: "B00000JBJ3", family: "neutral", kind: "d6", premium: true },
-  { name: "White", brand: "Chessex", hex: "#FAFAFA", asin: "B00000JBJ3", family: "neutral", kind: "d6", premium: true },
-  { name: "Red", brand: "Chessex", hex: "#C62828", asin: "B00000JBJ3", family: "red", kind: "d6", premium: true },
-  { name: "Blue", brand: "Chessex", hex: "#1565C0", asin: "B00000JBJ3", family: "blue", kind: "d6", premium: true },
-  { name: "Green", brand: "Chessex", hex: "#2E7D32", asin: "B00000JBJ3", family: "green", kind: "d6", premium: true },
-  { name: "Purple", brand: "Chessex", hex: "#6A1B9A", asin: "B00000JBJ3", family: "purple", kind: "d6", premium: true },
-  { name: "Orange", brand: "Chessex", hex: "#EF6C00", asin: "B00000JBJ3", family: "orange", kind: "d6", premium: true },
-  { name: "Yellow", brand: "Chessex", hex: "#FBC02D", asin: "B00000JBJ3", family: "yellow", kind: "d6", premium: true },
-  { name: "Pink", brand: "Chessex", hex: "#EC407A", asin: "B00000JBJ3", family: "pink", kind: "d6", premium: true },
+  { name: "Black", brand: "Chessex", hex: "#1A1A1A", asin: "B00000JBJ3", family: "neutral", kind: "d6", finish: "opaque", premium: true },
+  { name: "White", brand: "Chessex", hex: "#FAFAFA", asin: "B00000JBJ3", family: "neutral", kind: "d6", finish: "opaque", premium: true },
+  { name: "Red", brand: "Chessex", hex: "#C62828", asin: "B00000JBJ3", family: "red", kind: "d6", finish: "opaque", premium: true },
+  { name: "Blue", brand: "Chessex", hex: "#1565C0", asin: "B00000JBJ3", family: "blue", kind: "d6", finish: "opaque", premium: true },
+  { name: "Green", brand: "Chessex", hex: "#2E7D32", asin: "B00000JBJ3", family: "green", kind: "d6", finish: "opaque", premium: true },
+  { name: "Purple", brand: "Chessex", hex: "#6A1B9A", asin: "B00000JBJ3", family: "purple", kind: "d6", finish: "opaque", premium: true },
+  { name: "Orange", brand: "Chessex", hex: "#EF6C00", asin: "B00000JBJ3", family: "orange", kind: "d6", finish: "opaque", premium: true },
+  { name: "Yellow", brand: "Chessex", hex: "#FBC02D", asin: "B00000JBJ3", family: "yellow", kind: "d6", finish: "opaque", premium: true },
+  { name: "Pink", brand: "Chessex", hex: "#EC407A", asin: "B00000JBJ3", family: "pink", kind: "d6", finish: "opaque", premium: true },
   // —— Budget ——
-  { name: "Budget Black", brand: "Generic", hex: "#1A1A1A", asin: "B08GQQZJ8Y", family: "neutral", kind: "any", premium: false },
-  { name: "Budget Red", brand: "Generic", hex: "#C62828", asin: "B08GQQZJ8Y", family: "red", kind: "any", premium: false },
-  { name: "Budget Blue", brand: "Generic", hex: "#1565C0", asin: "B08GQQZJ8Y", family: "blue", kind: "any", premium: false },
-  { name: "Budget Green", brand: "Generic", hex: "#2E7D32", asin: "B08GQQZJ8Y", family: "green", kind: "any", premium: false },
-  { name: "Budget Purple", brand: "Generic", hex: "#6A1B9A", asin: "B08GQQZJ8Y", family: "purple", kind: "any", premium: false },
+  { name: "Budget Black", brand: "Generic", hex: "#1A1A1A", asin: "B08GQQZJ8Y", family: "neutral", kind: "any", finish: "opaque", premium: false },
+  { name: "Budget Red", brand: "Generic", hex: "#C62828", asin: "B08GQQZJ8Y", family: "red", kind: "any", finish: "opaque", premium: false },
+  { name: "Budget Blue", brand: "Generic", hex: "#1565C0", asin: "B08GQQZJ8Y", family: "blue", kind: "any", finish: "opaque", premium: false },
+  { name: "Budget Green", brand: "Generic", hex: "#2E7D32", asin: "B08GQQZJ8Y", family: "green", kind: "any", finish: "opaque", premium: false },
+  { name: "Budget Purple", brand: "Generic", hex: "#6A1B9A", asin: "B08GQQZJ8Y", family: "purple", kind: "any", finish: "opaque", premium: false },
 ];
 
 const PREMIUM_DICE_BRANDS = ["chessex", "gamegenic", "q workshop", "hd dice", "die hard"];
@@ -182,27 +180,45 @@ function kindMatches(entryKind: DiceKind, want: DiceKind): boolean {
   return entryKind === want;
 }
 
-/** Map hex → dice color names from the opaque Chessex-style catalog. */
-export function diceColorNamesFromHex(hex: string): string[] {
+function familyFallbackNames(family: HueFamily): string[] {
+  if (family === "purple") return ["Purple", "Violet"];
+  if (family === "neutral") return ["Gray"];
+  return [family.charAt(0).toUpperCase() + family.slice(1)];
+}
+
+function catalogHasFinish(finish: DiceFinish): boolean {
+  if (finish === "any") return true;
+  return DICE_CATALOG.some((e) => e.finish === finish);
+}
+
+/** Map hex → dice color names from the catalog (preferring the chosen finish). */
+export function diceColorNamesFromHex(hex: string, finish: DiceFinish = "any"): string[] {
   const targetFamily = hueFamilyFromHex(hex);
-  const matte = DICE_CATALOG.filter(
-    (e) => e.kind === "polyhedral" && !e.name.startsWith("Budget") && e.premium,
-  );
 
-  const pool = matte
-    .map((e) => ({
-      name: e.name,
-      family: e.family,
-      dE: colorDistance(hex, e.hex),
-    }))
-    .filter((e) => e.family === targetFamily)
-    .sort((a, b) => a.dE - b.dE);
+  const poolFor = (wantFinish: DiceFinish) =>
+    DICE_CATALOG.filter((e) => {
+      if (e.name.startsWith("Budget") || !e.premium) return false;
+      if (e.kind !== "polyhedral" && e.kind !== "any") return false;
+      return finishMatches(e.finish, wantFinish);
+    })
+      .map((e) => ({
+        name: e.name,
+        family: e.family,
+        dE: colorDistance(hex, e.hex),
+      }))
+      .filter((e) => e.family === targetFamily)
+      .sort((a, b) => a.dE - b.dE);
 
-  if (!pool.length) {
-    if (targetFamily === "purple") return ["Purple", "Violet"];
-    if (targetFamily === "neutral") return ["Gray"];
-    return ["Black"];
+  // Specialty finishes rarely cover every hue — name from the finish first,
+  // then opaque / any, never invent "Black" for a chromatic color.
+  let pool = poolFor(finish);
+  if (!pool.length && finish !== "any" && finish !== "opaque") {
+    pool = poolFor("opaque");
   }
+  if (!pool.length && finish !== "any") {
+    pool = poolFor("any");
+  }
+  if (!pool.length) return familyFallbackNames(targetFamily);
 
   const primary = pool[0];
   const names = [primary.name];
@@ -241,6 +257,7 @@ export function diceListingUrl(opts: {
   brand: string;
   colorName: string;
   kind: DiceKind;
+  finish?: DiceFinish;
   asin?: string;
 }): string {
   const asin = opts.asin?.replace(/[^A-Z0-9]/gi, "").slice(0, 10);
@@ -250,7 +267,9 @@ export function diceListingUrl(opts: {
   const brand = opts.brand || "Chessex";
   const color = opts.colorName.trim();
   const kindBit = kindSearchTerms(opts.kind);
-  return amazonSearchUrl(`${brand} ${color} ${kindBit}`);
+  const finishBit =
+    opts.finish && opts.finish !== "any" ? FINISH_TITLE_TERMS[opts.finish][0] : "";
+  return amazonSearchUrl([brand, finishBit, color, kindBit].filter(Boolean).join(" "));
 }
 
 type ScoredDice = {
@@ -275,6 +294,7 @@ export type DiceMatchResult = {
   matchHex: string;
   hue: HueName;
   kind: DiceKind;
+  finish: DiceFinish;
   source: "catalog" | "amazon";
   listingStyle?: string;
 };
@@ -294,9 +314,20 @@ function scoreCatalogEntry(
   targetFamily: HueFamily,
   premium: boolean,
   kind: DiceKind,
+  finish: DiceFinish,
 ): ScoredDice | null {
   if (entry.family !== targetFamily) return null;
   if (!kindMatches(entry.kind, kind)) return null;
+
+  const exactFinish = finishMatches(entry.finish, finish);
+  // When the catalog has no rows for Gemini / Speckled / etc., use opaque
+  // colors for ΔE naming while keeping the requested finish in search links.
+  const finishStandIn =
+    !exactFinish &&
+    finish !== "any" &&
+    !catalogHasFinish(finish) &&
+    entry.finish === "opaque";
+  if (!exactFinish && !finishStandIn) return null;
 
   const dE = colorDistance(hex, entry.hex);
   let score = 400 - dE * 12;
@@ -311,23 +342,29 @@ function scoreCatalogEntry(
   }
 
   if (kind !== "any" && entry.kind === kind) score += 18;
+  if (finish !== "any" && exactFinish) score += 22;
+  else if (finishStandIn) score -= 12;
 
+  const linkFinish: DiceFinish = finishStandIn ? finish : entry.finish;
+  const displayFinish = finishStandIn ? finish : entry.finish;
+  const colorName = entry.name.replace(/^Budget\s+/i, "") || entry.name;
   const displayTitle =
     premium || entryPremium
-      ? `${entry.brand}: ${entry.name} ${kindLabel(entry.kind)}`
-      : `Dice: ${entry.name} ${kindLabel(entry.kind)}`;
+      ? `${entry.brand}: ${colorName} ${finishLabel(displayFinish)} ${kindLabel(entry.kind)}`
+      : `Dice: ${colorName} ${finishLabel(displayFinish)} ${kindLabel(entry.kind)}`;
 
   return {
     title: displayTitle,
     asin: entry.asin,
     url: diceListingUrl({
       brand: entry.brand,
-      colorName: entry.name.replace(/^Budget\s+/i, "") || entry.name,
+      colorName,
       kind: entry.kind === "any" ? kind : entry.kind,
+      finish: linkFinish,
       asin: entry.asin,
     }),
     matchHex: entry.hex,
-    colorName: entry.name.replace(/^Budget\s+/i, "") || entry.name,
+    colorName,
     dE,
     family: entry.family,
     score,
@@ -487,7 +524,13 @@ async function fetchViaCorsProxy(url: string): Promise<string | null> {
   return null;
 }
 
-function buildDiceSearchQueries(colorName: string, premium: boolean, kind: DiceKind): string[] {
+function buildDiceSearchQueries(
+  colorName: string,
+  premium: boolean,
+  kind: DiceKind,
+  finish: DiceFinish,
+): string[] {
+  const finishBit = finish !== "any" ? FINISH_TITLE_TERMS[finish][0] : "opaque";
   const kindBit = kindSearchTerms(kind);
   if (kind === "d20") {
     return [
@@ -498,17 +541,17 @@ function buildDiceSearchQueries(colorName: string, premium: boolean, kind: DiceK
   }
   if (kind === "d6") {
     return [
-      `Chessex opaque ${colorName} D6 dice block`,
-      `Chessex ${colorName} D6`,
-      premium ? `opaque D6 ${colorName} Chessex` : `D6 dice ${colorName} opaque`,
+      `Chessex ${finishBit} ${colorName} D6 dice block`,
+      `Chessex ${colorName} D6 ${finishBit}`,
+      premium ? `${finishBit} D6 ${colorName} Chessex` : `D6 dice ${colorName} ${finishBit}`,
     ].slice(0, 3);
   }
   const queries = [
-    `Chessex opaque ${colorName} polyhedral dice`,
-    `Chessex ${colorName} dice set`,
+    `Chessex ${finishBit} ${colorName} polyhedral dice`,
+    `Chessex ${colorName} ${finishBit} dice set`,
   ];
-  if (premium) queries.push(`Gamegenic ${colorName} dice`);
-  else queries.push(`${kindBit} ${colorName} opaque`);
+  if (premium) queries.push(`Gamegenic ${colorName} ${finishBit} dice`);
+  else queries.push(`${kindBit} ${colorName} ${finishBit}`);
   return queries.slice(0, 3);
 }
 
@@ -518,15 +561,14 @@ function scoreAmazonDiceTitle(
   family: HueFamily,
   premium: boolean,
   kind: DiceKind,
+  finish: DiceFinish,
 ): number | null {
   const titleLower = title.toLowerCase();
   if (!/\bdice\b|d20|d6|polyhedral|spindown|chessex|gamegenic/.test(titleLower)) return null;
 
-  // Kind gate
   if (kind === "d20" && !/d20|spindown|twenty/.test(titleLower)) return null;
   if (kind === "d6" && !/\bd6\b|six.?sided|cube dice|dice block/.test(titleLower)) return null;
   if (kind === "polyhedral" && !/polyhedral|dice set|rpg dice|7.?piece|chessex/.test(titleLower)) {
-    // allow chessex sets that omit "polyhedral"
     if (!/chessex/.test(titleLower)) return null;
   }
 
@@ -534,6 +576,7 @@ function scoreAmazonDiceTitle(
   const synHit = titleHasColorSynonym(title, colorName);
   if (!exactColor && !synHit) return null;
   if (titleHasConflictingColor(title, family, colorName)) return null;
+  if (finish !== "any" && titleHasConflictingFinish(title, finish)) return null;
 
   let score = 50;
   if (exactColor) score += 55;
@@ -543,7 +586,8 @@ function scoreAmazonDiceTitle(
   else if (/gamegenic/.test(titleLower)) score += 16;
   else if (/q.?workshop|die hard/.test(titleLower)) score += 12;
   if (/\bdice\b/.test(titleLower)) score += 10;
-  if (/opaque/.test(titleLower)) score += 10;
+  if (titleMatchesFinish(title, finish === "any" ? "opaque" : finish)) score += 18;
+  else if (finish !== "any") score -= 12;
   if (/spindown/.test(titleLower) && (kind === "d20" || kind === "any")) score += 14;
 
   if (premium && isPremiumDiceBrand(title)) score += 16;
@@ -552,9 +596,16 @@ function scoreAmazonDiceTitle(
   else if (!premium && isPremiumDiceBrand(title)) score -= 4;
 
   const escaped = colorName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  if (new RegExp(`chessex\\s+(?:opaque\\s+)?${escaped}`, "i").test(titleLower)) score += 40;
+  if (new RegExp(`chessex\\s+(?:${finishBitPattern(finish)}\\s+)?${escaped}`, "i").test(titleLower)) {
+    score += 40;
+  }
 
   return score;
+}
+
+function finishBitPattern(finish: DiceFinish): string {
+  if (finish === "any") return "(?:opaque|translucent|gemini|borealis|speckled|glitter|vortex|luminary)";
+  return FINISH_TITLE_TERMS[finish].map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
 }
 
 function isHighConfidenceAmazonHit(title: string, colorName: string): boolean {
@@ -568,6 +619,7 @@ async function enrichListingsWithProductStyles(
   colorNames: string[],
   family: HueFamily,
   kind: DiceKind,
+  finish: DiceFinish,
   onProgress?: DiceMatchProgress,
 ): Promise<void> {
   const top = [...candidates].sort((a, b) => b.score - a.score).slice(0, 5);
@@ -608,6 +660,7 @@ async function enrichListingsWithProductStyles(
           brand: "Chessex",
           colorName: targetName || wantedColor,
           kind,
+          finish,
           asin: childAsin ?? cand.asin,
         });
       }
@@ -623,6 +676,7 @@ async function enrichListingsWithProductStyles(
           brand: "Chessex",
           colorName: wantedColor || targetName,
           kind,
+          finish,
         });
       }
     }
@@ -635,13 +689,14 @@ async function searchAmazonDice(
   family: HueFamily,
   premium: boolean,
   kind: DiceKind,
+  finish: DiceFinish,
   onProgress?: DiceMatchProgress,
 ): Promise<ScoredDice[]> {
   const scored: ScoredDice[] = [];
   const seen = new Set<string>();
   const querySet = new Set<string>();
   for (const colorName of colorNames.slice(0, 2)) {
-    for (const q of buildDiceSearchQueries(colorName, premium, kind)) {
+    for (const q of buildDiceSearchQueries(colorName, premium, kind, finish)) {
       querySet.add(q);
     }
   }
@@ -658,7 +713,7 @@ async function searchAmazonDice(
 
       let bestForHit: { colorName: string; score: number } | null = null;
       for (const colorName of colorNames.slice(0, 2)) {
-        const score = scoreAmazonDiceTitle(hit.title, colorName, family, premium, kind);
+        const score = scoreAmazonDiceTitle(hit.title, colorName, family, premium, kind, finish);
         if (score == null) continue;
         if (!bestForHit || score > bestForHit.score) bestForHit = { colorName, score };
       }
@@ -685,7 +740,14 @@ async function searchAmazonDice(
           (e) =>
             e.name.toLowerCase() === bestForHit!.colorName.toLowerCase() &&
             e.family === family &&
-            kindMatches(e.kind, kind),
+            kindMatches(e.kind, kind) &&
+            finishMatches(e.finish, finish),
+        ) ??
+        DICE_CATALOG.find(
+          (e) =>
+            e.name.toLowerCase() === bestForHit!.colorName.toLowerCase() &&
+            e.family === family &&
+            finishMatches(e.finish, finish),
         ) ??
         DICE_CATALOG.find(
           (e) => e.name.toLowerCase() === bestForHit!.colorName.toLowerCase() && e.family === family,
@@ -702,6 +764,7 @@ async function searchAmazonDice(
           brand: "Chessex",
           colorName: catalogHit?.name ?? bestForHit.colorName,
           kind,
+          finish: catalogHit?.finish ?? finish,
           asin: hit.asin,
         }),
         matchHex,
@@ -741,7 +804,7 @@ async function searchAmazonDice(
   }
 
   if (scored.length) {
-    await enrichListingsWithProductStyles(scored, colorNames, family, kind, onProgress);
+    await enrichListingsWithProductStyles(scored, colorNames, family, kind, finish, onProgress);
   }
   return scored.filter((s) => s.score > -500);
 }
@@ -756,24 +819,33 @@ export async function matchDiceColor(
   hex: string,
   premium: boolean,
   kind: DiceKind = "any",
+  finish: DiceFinish = "any",
   onProgress?: DiceMatchProgress,
 ): Promise<DiceMatchResult> {
   onProgress?.("naming", "Naming color…", 10);
-  const colorNames = diceColorNamesFromHex(hex);
+  const colorNames = diceColorNamesFromHex(hex, finish);
   const hue = hexToHueName(hex);
   const targetFamily = hueFamilyFromHex(hex);
 
   onProgress?.("amazon", "Searching Amazon dice…", 12);
   let amazonScored: ScoredDice[] = [];
   try {
-    amazonScored = await searchAmazonDice(hex, colorNames, targetFamily, premium, kind, onProgress);
+    amazonScored = await searchAmazonDice(
+      hex,
+      colorNames,
+      targetFamily,
+      premium,
+      kind,
+      finish,
+      onProgress,
+    );
   } catch {
     amazonScored = [];
   }
 
   onProgress?.("catalog", "Scoring dice matches…", 92);
   const catalogScored = DICE_CATALOG.map((e) =>
-    scoreCatalogEntry(e, hex, targetFamily, premium, kind),
+    scoreCatalogEntry(e, hex, targetFamily, premium, kind, finish),
   ).filter((s): s is ScoredDice => s != null);
 
   const bestAmazon = [...amazonScored].sort((a, b) => b.score - a.score)[0];
@@ -800,17 +872,18 @@ export async function matchDiceColor(
   }
 
   if (!best) {
-    const fallbackName = colorNames[0] ?? "Black";
+    const fallbackName = colorNames[0] ?? familyFallbackNames(targetFamily)[0];
     onProgress?.("done", "Done", 100);
     return {
       colorNames,
       colorName: fallbackName,
-      title: `Search: ${fallbackName} dice`,
+      title: `Search: ${fallbackName} ${finishLabel(finish)} dice`,
       asin: "",
-      url: diceListingUrl({ brand: "Chessex", colorName: fallbackName, kind }),
+      url: diceListingUrl({ brand: "Chessex", colorName: fallbackName, kind, finish }),
       matchHex: hex,
       hue,
       kind,
+      finish,
       source: "catalog",
     };
   }
@@ -820,6 +893,7 @@ export async function matchDiceColor(
       brand: "Chessex",
       colorName: best.colorName,
       kind,
+      finish,
       asin: best.asin,
     });
   }
@@ -834,6 +908,7 @@ export async function matchDiceColor(
     matchHex: best.matchHex,
     hue,
     kind,
+    finish,
     source: best.source,
     listingStyle: best.listingStyle,
   };

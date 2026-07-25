@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
-import { matchDiceColor, type DiceKind, type DiceMatchResult } from "../lib/amazon";
+import { matchDiceColor, type DiceKind, type DiceFinish, DICE_FINISH_OPTIONS, type DiceMatchResult } from "../lib/amazon";
 import { isSafeExternalHref } from "../lib/safeUrl";
 
 export function DiceColorPage() {
@@ -9,6 +9,7 @@ export function DiceColorPage() {
   const [color, setColor] = useState("#1565C0");
   const [premium, setPremium] = useState(true);
   const [kind, setKind] = useState<DiceKind>("any");
+  const [finish, setFinish] = useState<DiceFinish>("opaque");
   const [result, setResult] = useState<DiceMatchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [stageLabel, setStageLabel] = useState("Matching…");
@@ -21,7 +22,7 @@ export function DiceColorPage() {
     setStageLabel("Naming color…");
     setStagePct(10);
     try {
-      const match = await matchDiceColor(color, premium, kind, (_stage, label, pct) => {
+      const match = await matchDiceColor(color, premium, kind, finish, (_stage, label, pct) => {
         if (runId.current !== id) return;
         setStageLabel(label);
         setStagePct(pct);
@@ -49,8 +50,9 @@ export function DiceColorPage() {
       <header className="tool-header">
         <h1>Dice color matcher</h1>
         <p>
-          Pick a color. MagicGen names it, searches Amazon for Chessex opaque sets, spindown D20s,
-          and D6 blocks, and falls back to a curated catalog if live search fails.
+          Pick a color and finish. MagicGen names it, searches Amazon for Chessex lines (opaque,
+          translucent, gemini, and more), spindown D20s, and D6 blocks, and falls back to a curated
+          catalog if live search fails.
         </p>
       </header>
 
@@ -77,6 +79,20 @@ export function DiceColorPage() {
               <option value="polyhedral">Polyhedral set</option>
               <option value="d20">D20 / spindown</option>
               <option value="d6">D6 block</option>
+            </select>
+          </div>
+          <div className="field" style={{ marginTop: "1rem" }}>
+            <label htmlFor="dice-finish">Finish / texture</label>
+            <select
+              id="dice-finish"
+              value={finish}
+              onChange={(e) => setFinish(e.target.value as DiceFinish)}
+            >
+              {DICE_FINISH_OPTIONS.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
+                </option>
+              ))}
             </select>
           </div>
           <label className="check" style={{ marginTop: "1rem" }}>
@@ -136,6 +152,8 @@ export function DiceColorPage() {
                   </p>
                   <p className="muted" style={{ margin: 0 }}>
                     Hue family: {result.hue}
+                    {" · "}
+                    {DICE_FINISH_OPTIONS.find((o) => o.id === result.finish)?.label ?? result.finish}
                     {result.source === "amazon" ? " · live Amazon hit" : " · catalog match"}
                   </p>
                   {result.listingStyle ? (
