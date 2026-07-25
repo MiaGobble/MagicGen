@@ -195,7 +195,7 @@ export function ProxyToolsPage() {
         toast("PDF generation failed", "error");
       } else {
         toast("Proxy PDF ready", "success");
-        maybeShowKofiSupportToast(toast);
+        maybeShowKofiSupportToast(toast, "proxy");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "PDF generation failed");

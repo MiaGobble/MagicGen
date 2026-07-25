@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { CommanderFilters, DEFAULT_FILTERS, type FilterState } from "../components/CommanderFilters";
 import { DeckActions } from "../components/DeckActions";
@@ -77,7 +77,7 @@ export function RandomCommanderPage() {
     setFlipping(false);
   }
 
-  async function onNewCommander() {
+  const onNewCommander = useCallback(async () => {
     setError(null);
     setDeck(null);
     setDeckSource(null);
@@ -91,14 +91,36 @@ export function RandomCommanderPage() {
       });
       await flipTo(next);
       toast("Commander ready", "success");
-      maybeShowKofiSupportToast(toast);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to fetch commander";
       setError(msg.includes("no commanders") ? "no commanders within filters found" : msg);
     } finally {
       setLoading(false);
     }
-  }
+  }, [filters, toast]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.code !== "Space" && e.key !== " ") return;
+      const el = e.target as HTMLElement | null;
+      const tag = el?.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        tag === "BUTTON" ||
+        tag === "A" ||
+        el?.isContentEditable
+      ) {
+        return;
+      }
+      e.preventDefault();
+      if (loading || flipping || deckLoading) return;
+      void onNewCommander();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [loading, flipping, deckLoading, onNewCommander]);
 
   async function onGenerateDeck() {
     if (!card) return;
@@ -109,7 +131,7 @@ export function RandomCommanderPage() {
       setDeck(result.list);
       setDeckSource(result.source);
       toast("Average deck ready", "success");
-      maybeShowKofiSupportToast(toast);
+      maybeShowKofiSupportToast(toast, "commander-deck");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Deck generation failed");
       toast("Deck generation failed", "error");
@@ -138,10 +160,18 @@ export function RandomCommanderPage() {
 
       <CommanderFilters value={filters} onChange={setFilters} showPlaystyle={false} />
 
-      <div className="actions">
-        <button type="button" className="btn btn-primary" onClick={onNewCommander} disabled={loading || flipping}>
+      <div className="actions actions--with-hint">
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => void onNewCommander()}
+          disabled={loading || flipping}
+        >
           {loading ? "Searching…" : "New commander"}
         </button>
+        <p className="keybind-hint muted">
+          Press <kbd>Space</kbd> for another commander
+        </p>
       </div>
 
       {error && (
@@ -234,7 +264,8 @@ export function RandomCommanderPage() {
             </>
           ) : (
             <p className="muted">
-              Hit “New commander” to flip the first card. Default art is the MagicGen card back.
+              Hit “New commander” or press <kbd>Space</kbd> to flip the first card. Default art is the
+              MagicGen card back.
             </p>
           )}
         </div>

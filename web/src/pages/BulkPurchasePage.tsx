@@ -46,7 +46,7 @@ export function BulkPurchasePage() {
       setQuotes(vendorQuotes(rows));
       setOptimized(optimizePurchase(rows));
       toast(`Priced ${rows.length} unique line${rows.length === 1 ? "" : "s"}`, "success");
-      maybeShowKofiSupportToast(toast);
+      maybeShowKofiSupportToast(toast, "bulk");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Pricing failed");
       toast("Pricing failed", "error");

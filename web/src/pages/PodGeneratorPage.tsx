@@ -45,7 +45,7 @@ export function PodGeneratorPage() {
       });
       setPod(seats);
       toast(`Pod ready (${seats.length} seats)`, "success");
-      maybeShowKofiSupportToast(toast);
+      maybeShowKofiSupportToast(toast, "pod");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed";
       setError(msg.includes("no pods") ? "no pods within filters found" : msg);

@@ -28,7 +28,7 @@ export function SleeveColorPage() {
       if (runId.current !== id) return;
       setResult(match);
       toast("Sleeve match ready", "success");
-      maybeShowKofiSupportToast(toast);
+      maybeShowKofiSupportToast(toast, "sleeves");
     } catch {
       if (runId.current !== id) return;
       setResult(null);

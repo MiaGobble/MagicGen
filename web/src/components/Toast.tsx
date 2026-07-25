@@ -28,6 +28,8 @@ type ToastItem = {
   message: string;
   tone: ToastTone;
   action?: ToastAction;
+  durationMs: number;
+  leaving?: boolean;
 };
 
 type ToastContextValue = {
@@ -36,9 +38,20 @@ type ToastContextValue = {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-const DISMISS_MS = 5000;
-const KOFI_TOAST_KEY = "magicgen-kofi-toast-shown";
+const DISMISS_MS = 5200;
+const EXIT_MS = 320;
 const KOFI_URL = "https://ko-fi.com/igottic";
+
+/** Per-tool first-success Ko-fi nudge keys. */
+export type KofiToastTool =
+  | "commander-deck"
+  | "pimp"
+  | "sleeves"
+  | "dice"
+  | "boosters"
+  | "pod"
+  | "proxy"
+  | "bulk";
 
 function resolveOptions(toneOrOptions?: ToastTone | ToastOptions): Required<
   Pick<ToastOptions, "tone" | "durationMs">
@@ -60,19 +73,30 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const prefix = useId();
   const seq = useRef(0);
 
-  const dismiss = useCallback((id: string) => {
+  const remove = useCallback((id: string) => {
     const t = timers.current.get(id);
     if (t) window.clearTimeout(t);
     timers.current.delete(id);
     setItems((prev) => prev.filter((x) => x.id !== id));
   }, []);
 
+  const dismiss = useCallback(
+    (id: string) => {
+      const existing = timers.current.get(id);
+      if (existing) window.clearTimeout(existing);
+      setItems((prev) => prev.map((x) => (x.id === id ? { ...x, leaving: true } : x)));
+      const handle = window.setTimeout(() => remove(id), EXIT_MS);
+      timers.current.set(id, handle);
+    },
+    [remove],
+  );
+
   const toast = useCallback(
     (message: string, toneOrOptions?: ToastTone | ToastOptions) => {
       const { tone, durationMs, action } = resolveOptions(toneOrOptions);
       seq.current += 1;
       const id = `${prefix}-${seq.current}`;
-      setItems((prev) => [...prev.slice(-4), { id, message, tone, action }]);
+      setItems((prev) => [...prev.slice(-3), { id, message, tone, action, durationMs }]);
       const handle = window.setTimeout(() => dismiss(id), durationMs);
       timers.current.set(id, handle);
     },
@@ -95,8 +119,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             {items.map((item) => (
               <div
                 key={item.id}
-                className={`toast toast--${item.tone}`}
+                className={`toast toast--${item.tone}${item.leaving ? " toast--leaving" : ""}`}
                 role={item.tone === "error" ? "alert" : "status"}
+                style={{ ["--toast-duration" as string]: `${item.durationMs}ms` }}
               >
                 <div className="toast__body">
                   <span className="toast__msg">{item.message}</span>
@@ -119,6 +144,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 >
                   ×
                 </button>
+                <div className="toast__progress" aria-hidden>
+                  <div className="toast__progress-bar" />
+                </div>
               </div>
             ))}
           </div>,
@@ -134,19 +162,26 @@ export function useToast(): ToastContextValue {
   return ctx;
 }
 
-/** One-time Ko-fi nudge after a successful generation. Safe to call often. */
+/**
+ * One-time Ko-fi nudge after a successful generation for a given tool.
+ * Safe to call often — shows at most once per tool (localStorage).
+ */
 export function maybeShowKofiSupportToast(
   toast: ToastContextValue["toast"],
+  tool: KofiToastTool,
 ): void {
+  const key = `magicgen-kofi-toast-${tool}`;
   try {
-    if (localStorage.getItem(KOFI_TOAST_KEY)) return;
-    localStorage.setItem(KOFI_TOAST_KEY, "1");
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, "1");
   } catch {
     return;
   }
-  toast("Enjoying MagicGen? A Ko-fi tip keeps MagicGen growing.", {
-    tone: "info",
-    durationMs: 10000,
-    action: { label: "Support on Ko-fi", href: KOFI_URL },
-  });
+  window.setTimeout(() => {
+    toast("Enjoying MagicGen? A Ko-fi tip keeps the tools growing.", {
+      tone: "info",
+      durationMs: 12000,
+      action: { label: "Support on Ko-fi", href: KOFI_URL },
+    });
+  }, 700);
 }

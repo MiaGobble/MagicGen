@@ -30,7 +30,7 @@ export function DiceColorPage() {
       if (runId.current !== id) return;
       setResult(match);
       toast("Dice match ready", "success");
-      maybeShowKofiSupportToast(toast);
+      maybeShowKofiSupportToast(toast, "dice");
     } catch {
       if (runId.current !== id) return;
       setResult(null);

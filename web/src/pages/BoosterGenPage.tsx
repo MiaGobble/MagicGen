@@ -72,7 +72,7 @@ export function BoosterGenPage() {
       setResult(packsOut);
       const n = packsOut.reduce((s, p) => s + p.cards.length, 0);
       toast(`Generated ${packsOut.length} pack${packsOut.length === 1 ? "" : "s"} (${n} cards)`, "success");
-      maybeShowKofiSupportToast(toast);
+      maybeShowKofiSupportToast(toast, "boosters");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate");
       toast("Booster generation failed", "error");

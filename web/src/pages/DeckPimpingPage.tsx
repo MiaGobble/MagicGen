@@ -74,7 +74,7 @@ export function DeckPimpingPage() {
       setPicks(result.picks);
       setNotes(result.notes);
       toast(`Pimped ${result.cards.length} card${result.cards.length === 1 ? "" : "s"}`, "success");
-      maybeShowKofiSupportToast(toast);
+      maybeShowKofiSupportToast(toast, "pimp");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Pimping failed");
       toast("Pimping failed", "error");
