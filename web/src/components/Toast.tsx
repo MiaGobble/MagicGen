@@ -51,7 +51,8 @@ export type KofiToastTool =
   | "boosters"
   | "pod"
   | "proxy"
-  | "bulk";
+  | "bulk"
+  | "pack-wars";
 
 function resolveOptions(toneOrOptions?: ToastTone | ToastOptions): Required<
   Pick<ToastOptions, "tone" | "durationMs">

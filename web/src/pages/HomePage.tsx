@@ -24,6 +24,11 @@ const TOOLS = [
     blurb: "Craft custom draft packs with rarity queries.",
   },
   {
+    to: "/pack-wars",
+    title: "Pack Wars",
+    blurb: "Mini-Master decks: one booster, fifteen basics, play immediately.",
+  },
+  {
     to: "/proxy",
     title: "Proxy tools",
     blurb: "Search, layout, and print playtest proxies with clear labeling.",

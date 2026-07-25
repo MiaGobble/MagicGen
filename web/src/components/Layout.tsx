@@ -7,6 +7,7 @@ const LINKS = [
   { to: "/pod", label: "Pod generator" },
   { to: "/pimp", label: "Deck pimping" },
   { to: "/booster", label: "Booster generator" },
+  { to: "/pack-wars", label: "Pack Wars" },
   { to: "/proxy", label: "Proxy tools" },
   { to: "/bulk", label: "Bulk purchasing" },
   { to: "/supplies", label: "MTG supplies" },

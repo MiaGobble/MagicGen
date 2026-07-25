@@ -26,6 +26,11 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://magicgen.igottic.com/pack-wars</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://magicgen.igottic.com/proxy</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
