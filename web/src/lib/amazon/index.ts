@@ -10,6 +10,15 @@ export {
   type SleeveMatchProgress,
 } from "./sleeves";
 export {
+  matchDiceColor,
+  diceListingUrl,
+  diceColorNamesFromHex,
+  type DiceKind,
+  type DiceMatchResult,
+  type DiceMatchStage,
+  type DiceMatchProgress,
+} from "./dice";
+export {
   SUPPLY_LABELS,
   buildSupplyQueries,
   proxySupplyLinks,

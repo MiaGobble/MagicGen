@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 import { CommanderFilters, DEFAULT_FILTERS, type FilterState } from "../components/CommanderFilters";
 import { DeckActions } from "../components/DeckActions";
 import { ColorIdentity, ManaCost } from "../components/Mana";
@@ -244,11 +244,11 @@ export function RandomCommanderPage() {
         <section className="panel" style={{ marginTop: "1.5rem" }}>
           <h2>Generated deck</h2>
           <p className="muted">
-            Source: {deckSource}. Power metrics from{" "}
+            Source: {deckSource}. For a power-level read, try{" "}
             <a href="https://edhpowerlevel.com/" target="_blank" rel="noopener noreferrer">
               edhpowerlevel.com
-            </a>{" "}
-            are skipped (no public API).
+            </a>
+            .
           </p>
           <pre className="list-block">{deck}</pre>
           <div className="actions">
@@ -266,11 +266,6 @@ export function RandomCommanderPage() {
             </button>
           </div>
           <DeckActions list={deck} />
-          <div className="actions">
-            <Link className="btn btn-ghost" to={`/pimp?list=${encodeURIComponent(deck)}`}>
-              Send to deck pimping
-            </Link>
-          </div>
         </section>
       )}
 

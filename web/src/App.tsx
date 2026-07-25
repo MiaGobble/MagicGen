@@ -9,6 +9,7 @@ import { PodGeneratorPage } from "./pages/PodGeneratorPage";
 import { ProxyToolsPage } from "./pages/ProxyToolsPage";
 import { RandomCommanderPage } from "./pages/RandomCommanderPage";
 import { SleeveColorPage } from "./pages/SleeveColorPage";
+import { DiceColorPage } from "./pages/DiceColorPage";
 import { SuppliesPage } from "./pages/SuppliesPage";
 
 // Vite BASE_URL always ends with "/"; React Router basename must not.
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="bulk" element={<BulkPurchasePage />} />
           <Route path="supplies" element={<SuppliesPage />} />
           <Route path="sleeves" element={<SleeveColorPage />} />
+          <Route path="dice" element={<DiceColorPage />} />
           <Route path="beginner" element={<BeginnerStarterPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

@@ -44,6 +44,11 @@ const TOOLS = [
     blurb: "Pick a color, get close-matching sleeve shopping links.",
   },
   {
+    to: "/dice",
+    title: "Dice color matcher",
+    blurb: "Match Chessex, spindown D20s, and D6 blocks to a color you pick.",
+  },
+  {
     to: "/beginner",
     title: "Beginner starter",
     blurb: "A linear path from learning the rules to your first game.",

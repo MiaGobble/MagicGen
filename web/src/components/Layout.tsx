@@ -11,6 +11,7 @@ const LINKS = [
   { to: "/bulk", label: "Bulk purchasing" },
   { to: "/supplies", label: "MTG supplies" },
   { to: "/sleeves", label: "Sleeve color matcher" },
+  { to: "/dice", label: "Dice color matcher" },
   { to: "/beginner", label: "Beginner starter" },
 ];
 

@@ -244,7 +244,7 @@ export async function fetchEdhrecCommander(name: string, bracket?: number): Prom
 
 /**
  * Prefer the bracket-specific average deck page when `bracket` is set.
- * Falls back to the overall average if the bracket page is missing.
+ * Returns null when that bracket page is missing (no overall fallback).
  */
 export async function fetchAverageDeckJson(
   name: string,
@@ -257,6 +257,7 @@ export async function fetchAverageDeckJson(
       `https://json.edhrec.com/pages/average-decks/${slug}/${b}.json`,
     );
     if (bracketed?.deck) return { data: bracketed, bracketSpecific: true };
+    return null;
   }
   try {
     const data = await edhrecFetch<AverageDeckJson>(
@@ -353,32 +354,6 @@ function linesFromAverageDeck(avg: AverageDeckJson, commander: ScryfallCard): De
   return main;
 }
 
-async function assembleFromTopCards(
-  commander: ScryfallCard,
-  bracket: number,
-): Promise<DeckLine[]> {
-  const page = await fetchEdhrecCommander(commander.name.split(" // ")[0], bracket);
-  const lists = page.container?.json_dict?.cardlists ?? [];
-  const pool: string[] = [];
-  for (const list of lists) {
-    for (const card of list.cardviews ?? []) {
-      if (card.name && !isCommanderName(card.name, commander)) pool.push(card.name);
-    }
-  }
-
-  const unique = [...new Set(pool)];
-  const nonlandTarget = bracket >= 4 ? 62 : bracket <= 2 ? 55 : 58;
-  const picked = unique.slice(0, nonlandTarget);
-  const main: DeckLine[] = picked.map((name) => ({ quantity: 1, name, category: "Deck" }));
-  const landCount = Math.max(0, 99 - picked.length);
-  return main.concat(
-    basicLandsFor(commander.color_identity ?? [], landCount).map((l) => ({
-      ...l,
-      category: "Deck" as const,
-    })),
-  );
-}
-
 /** Build an "average" deck from EDHREC data for the selected bracket. Always 100 cards. */
 export async function generateAverageDeck(
   commander: ScryfallCard,
@@ -389,29 +364,30 @@ export async function generateAverageDeck(
   const meta = BRACKET_META[b];
   const commanderName = commander.name.split(" // ")[0];
 
-  const avg = await fetchAverageDeckJson(commanderName, b);
-  let main: DeckLine[] = [];
-  let source: string;
-
-  if (avg?.data.deck) {
-    main = linesFromAverageDeck(avg.data, commander);
-    source = avg.bracketSpecific
-      ? `EDHREC average deck · Bracket ${b} (${meta.label})`
-      : `EDHREC average deck (overall; no Bracket ${b} sample)`;
-  } else {
-    try {
-      main = await assembleFromTopCards(commander, b);
-      source = `EDHREC top cards · Bracket ${b} (${meta.label})`;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      if (/network error/i.test(msg)) {
-        throw new Error(
-          `Could not reach EDHREC for Bracket ${b} (${meta.label}). Check your connection and try again.`,
-        );
-      }
-      throw err;
-    }
+  const counts = await fetchBracketCounts(commanderName);
+  const bracketDecks = counts?.[b] ?? 0;
+  if (bracketDecks <= 0) {
+    throw new Error(
+      `No EDHREC decks found for Bracket ${b} (${meta.label}) with ${commanderName}. Try another bracket.`,
+    );
   }
+
+  const avg = await fetchAverageDeckJson(commanderName, b);
+  if (!avg?.data.deck || !avg.bracketSpecific) {
+    throw new Error(
+      `No EDHREC average deck for Bracket ${b} (${meta.label}) with ${commanderName}. Try another bracket.`,
+    );
+  }
+
+  let main = linesFromAverageDeck(avg.data, commander);
+  const sampleSize = main.reduce((s, l) => s + l.quantity, 0);
+  if (sampleSize < 20) {
+    throw new Error(
+      `Not enough Bracket ${b} (${meta.label}) deck data on EDHREC for ${commanderName}. Try another bracket.`,
+    );
+  }
+
+  const source = `EDHREC average deck · Bracket ${b} (${meta.label})`;
 
   main = main.filter((l) => !isCommanderName(l.name, commander));
   main = fitDeckSize(main, 99, colorId);
