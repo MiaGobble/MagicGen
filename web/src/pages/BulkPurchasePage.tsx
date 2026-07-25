@@ -34,14 +34,20 @@ export function BulkPurchasePage() {
   const [optimized, setOptimized] = useState<OptimizedSplit | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number; label?: string } | null>(
+    null,
+  );
 
   async function onPrice() {
     setLoading(true);
     setError(null);
+    setProgress({ done: 0, total: 1, label: "Starting…" });
     try {
       const lines = parseMoxfieldList(input);
       if (!lines.length) throw new Error("No cards parsed from list");
-      const rows = await priceDeck(lines, anyPrinting);
+      const rows = await priceDeck(lines, anyPrinting, (done, total, label) =>
+        setProgress({ done, total, label }),
+      );
       setPriced(rows);
       setQuotes(vendorQuotes(rows));
       setOptimized(optimizePurchase(rows));
@@ -52,10 +58,13 @@ export function BulkPurchasePage() {
       toast("Pricing failed", "error");
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   }
 
   const scryfallTotal = priced?.reduce((s, p) => s + p.usd * p.quantity, 0) ?? 0;
+  const progressPct =
+    progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
   async function openVendorCart(
     url: string,
@@ -125,6 +134,28 @@ export function BulkPurchasePage() {
           {loading ? "Pricing…" : "Get prices"}
         </button>
       </div>
+
+      {loading && progress && (
+        <div
+          className="progress-block"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={progress.total || 100}
+          aria-valuenow={progress.done}
+          aria-label="Bulk pricing progress"
+        >
+          <div className="progress-block__meta">
+            <span>{progress.label ?? (progress.total > 0 ? `${progress.done} / ${progress.total}` : "Starting…")}</span>
+            <span>{progressPct}%</span>
+          </div>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${progressPct}%` }} />
+          </div>
+          <p className="progress-block__note muted">
+            Large lists are priced in batches of 75 via Scryfall.
+          </p>
+        </div>
+      )}
 
       {error && <p className="error">{error}</p>}
 

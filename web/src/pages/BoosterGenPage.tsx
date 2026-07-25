@@ -24,6 +24,9 @@ export function BoosterGenPage() {
   const [result, setResult] = useState<GeneratedPack[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number; label?: string } | null>(
+    null,
+  );
 
   function applyPreset(id: BoosterPresetId) {
     const p = BOOSTER_PRESETS[id];
@@ -61,6 +64,7 @@ export function BoosterGenPage() {
     }
     setLoading(true);
     setError(null);
+    setProgress({ done: 0, total: packs, label: "Starting…" });
     try {
       const packsOut = await generateBoosters({
         set: setCode || undefined,
@@ -68,6 +72,7 @@ export function BoosterGenPage() {
         packs,
         rules,
         pimpedPrintings,
+        onProgress: (done, total, label) => setProgress({ done, total, label }),
       });
       setResult(packsOut);
       const n = packsOut.reduce((s, p) => s + p.cards.length, 0);
@@ -78,10 +83,13 @@ export function BoosterGenPage() {
       toast("Booster generation failed", "error");
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   }
 
   const moxfield = result ? cardsToMoxfieldList(result.flatMap((p) => p.cards)) : "";
+  const progressPct =
+    progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
     <div className="tool-page container">
@@ -214,6 +222,25 @@ export function BoosterGenPage() {
             : "Generate boosters"}
         </button>
       </div>
+
+      {loading && progress && (
+        <div
+          className="progress-block"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={progress.total || 100}
+          aria-valuenow={progress.done}
+          aria-label="Booster generation progress"
+        >
+          <div className="progress-block__meta">
+            <span>{progress.label ?? (progress.total > 0 ? `${progress.done} / ${progress.total}` : "Starting…")}</span>
+            <span>{progressPct}%</span>
+          </div>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${progressPct}%` }} />
+          </div>
+        </div>
+      )}
 
       {error && <p className="error">{error}</p>}
 

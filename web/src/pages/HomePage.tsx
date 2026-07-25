@@ -25,7 +25,7 @@ const TOOLS = [
   },
   {
     to: "/pack-wars",
-    title: "Pack Wars",
+    title: "Pack Wars generator",
     blurb: "Mini-Master decks: one booster, fifteen basics, play immediately.",
   },
   {

@@ -1,31 +1,33 @@
 import { useState } from "react";
-import { DeckActions } from "../components/DeckActions";
 import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
 import {
   generatePackWarsDecks,
   PACK_WARS_LAND_NOTE,
   type PackWarsDeck,
+  type PackWarsProgress,
 } from "../lib/packWars";
-import { getCardImage } from "../lib/scryfall";
 
 export function PackWarsPage() {
   const { toast } = useToast();
-  const [players, setPlayers] = useState(2);
+  const [players, setPlayers] = useState(1);
   const [setCode, setSetCode] = useState("");
   const [doubleStack, setDoubleStack] = useState(false);
   const [decks, setDecks] = useState<PackWarsDeck[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<PackWarsProgress | null>(null);
 
   async function onGenerate() {
     setLoading(true);
     setError(null);
+    setProgress({ done: 0, total: 1, label: "Starting…" });
     try {
       const result = await generatePackWarsDecks({
         players,
         set: setCode || undefined,
         packsPerPlayer: doubleStack ? 2 : 1,
+        onProgress: setProgress,
       });
       setDecks(result);
       toast(
@@ -38,18 +40,22 @@ export function PackWarsPage() {
       toast("Pack Wars generation failed", "error");
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   }
+
+  const progressPct =
+    progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
     <div className="tool-page container">
       <Seo
-        title="Pack Wars Deck Generator"
+        title="Pack Wars Generator"
         description="Generate Mini-Master / Pack Wars decks: open a booster, add 15 basic lands, and play immediately."
         path="/pack-wars"
       />
       <header className="tool-header">
-        <h1>Pack Wars</h1>
+        <h1>Pack Wars generator</h1>
         <p>
           Mini-Master style decks: crack a booster, add three of each basic land, and play without
           looking first.
@@ -69,7 +75,8 @@ export function PackWarsPage() {
           <ul>
             <li>
               <strong>Blind discovery.</strong> The fun is drawing into your own pack — many groups
-              skip mulligans so you never peek.
+              skip mulligans so you never peek. Lists stay hidden here too; copy when you’re ready to
+              proxy or import.
             </li>
             <li>
               <strong>This tool.</strong> Builds that deck for you: a draft-style pack (10 commons, 3
@@ -140,42 +147,51 @@ export function PackWarsPage() {
         </button>
       </div>
 
+      {loading && progress && (
+        <div
+          className="progress-block"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={progress.total || 100}
+          aria-valuenow={progress.done}
+          aria-label="Pack Wars generation progress"
+        >
+          <div className="progress-block__meta">
+            <span>{progress.label}</span>
+            <span>{progressPct}%</span>
+          </div>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${progressPct}%` }} />
+          </div>
+        </div>
+      )}
+
       {error && <p className="error">{error}</p>}
 
       {decks &&
         decks.map((deck) => (
           <section key={deck.player} className="panel" style={{ marginTop: "1rem" }}>
             <h2 style={{ marginTop: 0 }}>
-              Player {deck.player}
+              {decks.length === 1 ? "Your deck" : `Player ${deck.player}`}
               <span className="muted" style={{ fontWeight: 500, fontSize: "0.95rem" }}>
                 {" "}
                 · {deck.cardCount} cards · {deck.packCount} pack
                 {deck.packCount === 1 ? "" : "s"} + 15 basics
               </span>
             </h2>
-            <p className="muted" style={{ marginTop: 0 }}>
-              Pack contents ({deck.packCards.length} cards) — basics omitted from the gallery:
-            </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-              {deck.packCards.map((c, idx) => (
-                <img
-                  key={`${deck.player}-${c.id}-${idx}`}
-                  src={getCardImage(c)}
-                  alt={c.name}
-                  title={`${c.name} (${c.rarity}${c.set ? ` · ${c.set}` : ""})`}
-                  style={{ width: 90, borderRadius: 6 }}
-                />
-              ))}
-            </div>
-            <h3 style={{ fontSize: "1.05rem", marginBottom: "0.35rem" }}>Deck list</h3>
-            <pre className="list-block">{deck.list}</pre>
             <div className="actions">
               <button
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => {
                   void navigator.clipboard.writeText(deck.list).then(
-                    () => toast(`Copied player ${deck.player} list`, "success"),
+                    () =>
+                      toast(
+                        decks.length === 1
+                          ? "Copied list"
+                          : `Copied player ${deck.player} list`,
+                        "success",
+                      ),
                     () => toast("Could not copy", "error"),
                   );
                 }}
@@ -183,7 +199,6 @@ export function PackWarsPage() {
                 Copy list
               </button>
             </div>
-            <DeckActions list={deck.list} />
           </section>
         ))}
     </div>

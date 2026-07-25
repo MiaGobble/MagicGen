@@ -18,6 +18,12 @@ const PACK_RULES = [
   { rarity: "uncommon" as const, count: 3, query: "r:uncommon -t:basic" },
 ];
 
+export type PackWarsProgress = {
+  done: number;
+  total: number;
+  label: string;
+};
+
 export type PackWarsConfig = {
   /** How many decks / seats to generate (1–4). */
   players: number;
@@ -27,6 +33,7 @@ export type PackWarsConfig = {
   packsPerPlayer?: 1 | 2;
   /** Chance the rare slot is a mythic (default ~1/8 like modern boosters). */
   mythicChance?: number;
+  onProgress?: (progress: PackWarsProgress) => void;
 };
 
 export type PackWarsDeck = {
@@ -118,13 +125,36 @@ export async function generatePackWarsDecks(
 ): Promise<PackWarsDeck[]> {
   const players = Math.min(4, Math.max(1, Math.floor(config.players) || 1));
   const packsPerPlayer = config.packsPerPlayer === 2 ? 2 : 1;
+  const packTotal = players * packsPerPlayer;
+  const total = packTotal + 1;
+  let done = 0;
+
+  const report = (label: string) => {
+    config.onProgress?.({ done, total, label });
+  };
+
+  report("Loading basic lands…");
   const basics = await loadBasicLands();
+  done = 1;
+  report("Opening packs…");
 
   const decks: PackWarsDeck[] = [];
   for (let p = 0; p < players; p++) {
     const packCards: ScryfallCard[] = [];
     for (let i = 0; i < packsPerPlayer; i++) {
+      const packIndex = p * packsPerPlayer + i + 1;
+      report(
+        players === 1
+          ? `Opening pack ${packIndex} of ${packTotal}…`
+          : `Player ${p + 1} · opening pack ${i + 1} of ${packsPerPlayer}…`,
+      );
       packCards.push(...(await openOnePack(config)));
+      done += 1;
+      report(
+        players === 1
+          ? `Opened pack ${packIndex} of ${packTotal}`
+          : `Player ${p + 1} · pack ${i + 1} ready`,
+      );
     }
 
     const lines = linesFromDeck(packCards, basics);
@@ -144,6 +174,7 @@ export async function generatePackWarsDecks(
     });
   }
 
+  config.onProgress?.({ done: total, total, label: "Done" });
   return decks;
 }
 

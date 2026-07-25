@@ -47,6 +47,7 @@ const SHIPPING: Record<string, number> = {
 export async function priceDeck(
   lines: DeckLine[],
   anyPrinting = true,
+  onProgress?: (done: number, total: number, label?: string) => void,
 ): Promise<PricedCard[]> {
   const idents = lines.map((l) => {
     if (!anyPrinting && l.setCode && l.collectorNumber) {
@@ -55,8 +56,14 @@ export async function priceDeck(
     return { name: l.name.split(" // ")[0] };
   });
 
-  const cards = await collectionLookup(idents);
+  const cards = await collectionLookup(idents, onProgress);
   const byName = new Map(cards.map((c) => [c.name.toLowerCase(), c]));
+
+  onProgress?.(
+    Math.max(1, Math.ceil(idents.length / 75)),
+    Math.max(1, Math.ceil(idents.length / 75)),
+    "Building price table…",
+  );
 
   return lines.map((l) => {
     const card =

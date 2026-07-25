@@ -15,6 +15,7 @@ export type BoosterConfig = {
   rules: RarityRule[];
   /** Swap each pick to a flashier printing when available */
   pimpedPrintings?: boolean;
+  onProgress?: (done: number, total: number, label?: string) => void;
 };
 
 export type GeneratedPack = {
@@ -113,9 +114,20 @@ async function pimpCard(card: ScryfallCard): Promise<ScryfallCard> {
 export async function generateBoosters(config: BoosterConfig): Promise<GeneratedPack[]> {
   const packs: GeneratedPack[] = [];
   const rules = config.rules.filter((r) => r.count > 0);
+  const cardsPerPack = rules.reduce((s, r) => s + r.count, 0);
+  const total =
+    config.packs * (1 + (config.pimpedPrintings ? Math.max(cardsPerPack, 1) : 0));
+  let done = 0;
+
+  const report = (label: string) => {
+    config.onProgress?.(done, Math.max(total, 1), label);
+  };
+
+  report(config.packs > 1 ? "Opening packs…" : "Opening pack…");
 
   for (let p = 0; p < config.packs; p++) {
     const cards: ScryfallCard[] = [];
+    report(`Opening pack ${p + 1} of ${config.packs}…`);
     for (const rule of rules) {
       const parts = [
         config.defaultQuery.trim() || DEFAULT_BOOSTER_QUERY,
@@ -145,16 +157,28 @@ export async function generateBoosters(config: BoosterConfig): Promise<Generated
       }
     }
 
+    done += 1;
+    report(`Opened pack ${p + 1} of ${config.packs}`);
+
     if (config.pimpedPrintings && cards.length) {
       const pimped: ScryfallCard[] = [];
-      for (const card of cards) {
-        pimped.push(await pimpCard(card));
+      const expected = Math.max(cardsPerPack, cards.length);
+      for (let i = 0; i < cards.length; i++) {
+        report(`Pimping pack ${p + 1} · card ${i + 1} of ${cards.length}…`);
+        pimped.push(await pimpCard(cards[i]));
+        done += 1;
+      }
+      // If a pack returned fewer cards than expected, still consume the budgeted steps
+      if (cards.length < expected) {
+        done += expected - cards.length;
       }
       packs.push({ index: p + 1, cards: pimped });
+      report(`Finished pack ${p + 1} of ${config.packs}`);
     } else {
       packs.push({ index: p + 1, cards });
     }
   }
 
+  config.onProgress?.(Math.max(total, done), Math.max(total, 1), "Done");
   return packs;
 }

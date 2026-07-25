@@ -323,8 +323,11 @@ export type CollectionIdentifier =
   | { id: string }
   | { set: string; collector_number: string };
 
-export async function collectionLookup(idents: CollectionIdentifier[]): Promise<ScryfallCard[]> {
-  const { cards } = await collectionLookupDetailed(idents);
+export async function collectionLookup(
+  idents: CollectionIdentifier[],
+  onProgress?: (done: number, total: number, label?: string) => void,
+): Promise<ScryfallCard[]> {
+  const { cards } = await collectionLookupDetailed(idents, onProgress);
   return cards;
 }
 
@@ -336,12 +339,23 @@ export type CollectionLookupResult = {
 
 export async function collectionLookupDetailed(
   idents: CollectionIdentifier[],
+  onProgress?: (done: number, total: number, label?: string) => void,
 ): Promise<CollectionLookupResult> {
   const cards: ScryfallCard[] = [];
   const notFound: CollectionIdentifier[] = [];
+  const chunks = Math.max(1, Math.ceil(idents.length / 75));
 
-  for (let i = 0; i < idents.length; i += 75) {
+  onProgress?.(0, chunks, "Looking up cards on Scryfall…");
+
+  for (let i = 0, chunkIndex = 0; i < idents.length; i += 75, chunkIndex += 1) {
     const chunk = idents.slice(i, i + 75);
+    onProgress?.(
+      chunkIndex,
+      chunks,
+      chunks > 1
+        ? `Looking up cards (${chunkIndex + 1} / ${chunks})…`
+        : "Looking up cards on Scryfall…",
+    );
     const data = await scryfallFetch<{
       data: ScryfallCard[];
       not_found?: CollectionIdentifier[];
@@ -352,7 +366,10 @@ export async function collectionLookupDetailed(
     });
     cards.push(...data.data);
     if (data.not_found?.length) notFound.push(...data.not_found);
+    onProgress?.(chunkIndex + 1, chunks, `Priced batch ${chunkIndex + 1} of ${chunks}`);
   }
+
+  if (!idents.length) onProgress?.(1, 1, "Done");
 
   return { cards, notFound };
 }
