@@ -15,7 +15,7 @@ export function RootEntry() {
   }
 
   const home = settings.defaultHome;
-  if (home && home !== "/" && home !== "/home") {
+  if (home && home !== "/") {
     return <Navigate to={home} replace />;
   }
   return <HomePage />;

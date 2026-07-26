@@ -889,13 +889,16 @@ export async function generatePoolDecks(opts: PoolDecksOptions): Promise<PoolDec
       total: totalSteps,
       label: `Power analysis · deck ${i + 1} of ${decks.length}…`,
     });
+    const deck = decks[i];
+    if (!deck) continue;
     try {
-      decks[i].power = await analyzeDeckPower(decks[i].lines);
-      decks[i].notes.push(
-        `Power ${decks[i].power.powerLevel.toFixed(2)}/10 · Bracket ${decks[i].power.bracket} (${decks[i].power.bracketLabel}).`,
+      const power = await analyzeDeckPower(deck.lines);
+      deck.power = power;
+      deck.notes.push(
+        `Power ${power.powerLevel.toFixed(2)}/10 · Bracket ${power.bracket} (${power.bracketLabel}).`,
       );
     } catch {
-      decks[i].notes.push("Power analysis unavailable for this deck.");
+      deck.notes.push("Power analysis unavailable for this deck.");
     }
   }
 

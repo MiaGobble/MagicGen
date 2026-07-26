@@ -8,7 +8,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  DEFAULT_SETTINGS,
   loadSettings,
   saveSettings,
   type AppSettings,

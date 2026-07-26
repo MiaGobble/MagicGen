@@ -2,12 +2,8 @@ import { useMemo, useState } from "react";
 import { FormatBadge } from "../components/FormatBadge";
 import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
-import {
-  convertDeckFormat,
-  detectDeckFormat,
-  type DeckListFormat,
-} from "../lib/deckFormat";
-import { DECK_FORMAT_META } from "../lib/settings";
+import { convertDeckFormat, detectDeckFormat } from "../lib/deckFormat";
+import { DECK_FORMAT_META, type DeckListFormat } from "../lib/settings";
 
 const FORMATS = Object.keys(DECK_FORMAT_META) as DeckListFormat[];
 
