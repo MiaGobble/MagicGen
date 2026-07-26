@@ -10,7 +10,6 @@ import { useDeckExport } from "../hooks/useDeckExport";
 import {
   clampDeckCount,
   generatePoolDecks,
-  MAX_DECKS,
   MIN_DECKS,
   type PoolDeck,
   type PoolProgress,
@@ -139,17 +138,17 @@ export function PoolDecksPage() {
       <div className="split">
         <div className="field">
           <label htmlFor="pool-count">Number of decks</label>
-          <select
+          <input
             id="pool-count"
+            type="number"
+            min={MIN_DECKS}
+            step={1}
             value={deckCount}
             onChange={(e) => setDeckCount(clampDeckCount(Number(e.target.value)))}
-          >
-            {Array.from({ length: MAX_DECKS - MIN_DECKS + 1 }, (_, i) => MIN_DECKS + i).map((n) => (
-              <option key={n} value={n}>
-                {n} decks
-              </option>
-            ))}
-          </select>
+          />
+          <p className="muted" style={{ margin: 0, fontSize: "0.88rem" }}>
+            No upper limit. You need at least as many commander-legal cards as decks.
+          </p>
         </div>
       </div>
 

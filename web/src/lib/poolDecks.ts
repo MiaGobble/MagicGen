@@ -43,8 +43,12 @@ const MAIN_SIZE = 99;
 const TARGET_LANDS = 37;
 const MIN_LANDS = 35;
 const MAX_LANDS = 39;
-const MIN_DECKS = 2;
-const MAX_DECKS = 8;
+const MIN_DECKS = 1;
+
+function clampDeckCount(n: number): number {
+  if (!Number.isFinite(n)) return 2;
+  return Math.max(MIN_DECKS, Math.round(n));
+}
 
 type PoolItem = {
   key: string;
@@ -187,11 +191,6 @@ function basicLandsFor(colorId: string[], count: number): DeckLine[] {
     if (rem > 0) rem -= 1;
     return { quantity: qty, name, category: "Deck" };
   });
-}
-
-function clampDeckCount(n: number): number {
-  if (!Number.isFinite(n)) return MIN_DECKS;
-  return Math.max(MIN_DECKS, Math.min(MAX_DECKS, Math.round(n)));
 }
 
 function seatMainCount(seat: Seat): number {
@@ -924,4 +923,4 @@ export async function generatePoolDecks(opts: PoolDecksOptions): Promise<PoolDec
   return decks;
 }
 
-export { MIN_DECKS, MAX_DECKS, clampDeckCount };
+export { MIN_DECKS, clampDeckCount };
