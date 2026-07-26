@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { FormatBadge } from "../components/FormatBadge";
 import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
+import { useDeckExport } from "../hooks/useDeckExport";
 import {
   generatePackWarsDecks,
   PACK_WARS_LAND_NOTE,
@@ -10,6 +12,7 @@ import {
 
 export function PackWarsPage() {
   const { toast } = useToast();
+  const { formatCards } = useDeckExport();
   const [players, setPlayers] = useState(1);
   const [setCode, setSetCode] = useState("");
   const [doubleStack, setDoubleStack] = useState(false);
@@ -74,7 +77,7 @@ export function PackWarsPage() {
           </p>
           <ul>
             <li>
-              <strong>Blind discovery.</strong> The fun is drawing into your own pack — many groups
+              <strong>Blind discovery.</strong> The fun is drawing into your own pack - many groups
               skip mulligans so you never peek. Lists stay hidden here too; copy when you’re ready to
               proxy or import.
             </li>
@@ -88,7 +91,7 @@ export function PackWarsPage() {
             </li>
             <li>
               <strong>Variants.</strong> Official minigames also mention “whole pack as opening hand
-              + a land from outside the game each turn” and escalating packs after wins — play those
+              + a land from outside the game each turn” and escalating packs after wins - play those
               however your table likes.
             </li>
           </ul>
@@ -169,7 +172,9 @@ export function PackWarsPage() {
       {error && <p className="error">{error}</p>}
 
       {decks &&
-        decks.map((deck) => (
+        decks.map((deck) => {
+          const list = formatCards(deck.cards);
+          return (
           <section key={deck.player} className="panel" style={{ marginTop: "1rem" }}>
             <h2 style={{ marginTop: 0 }}>
               {decks.length === 1 ? "Your deck" : `Player ${deck.player}`}
@@ -179,12 +184,13 @@ export function PackWarsPage() {
                 {deck.packCount === 1 ? "" : "s"} + 15 basics
               </span>
             </h2>
+            <FormatBadge compact />
             <div className="actions">
               <button
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => {
-                  void navigator.clipboard.writeText(deck.list).then(
+                  void navigator.clipboard.writeText(list).then(
                     () =>
                       toast(
                         decks.length === 1
@@ -200,7 +206,8 @@ export function PackWarsPage() {
               </button>
             </div>
           </section>
-        ))}
+          );
+        })}
     </div>
   );
 }

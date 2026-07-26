@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router";
 import { useEffect, useState } from "react";
+import { SettingsProvider } from "./SettingsProvider";
 import { ToastProvider } from "./Toast";
 
 const LINKS = [
@@ -7,6 +8,8 @@ const LINKS = [
   { to: "/pod", label: "Pod generator" },
   { to: "/pimp", label: "Deck pimping" },
   { to: "/budget", label: "Deck cost cutter" },
+  { to: "/convert", label: "Format converter" },
+  { to: "/pool-decks", label: "Pool to decks" },
   { to: "/booster", label: "Booster generator" },
   { to: "/pack-wars", label: "Pack Wars generator" },
   { to: "/proxy", label: "Proxy tools" },
@@ -37,7 +40,8 @@ export function Layout() {
   const close = () => setOpen(false);
 
   return (
-    <ToastProvider>
+    <SettingsProvider>
+      <ToastProvider>
       <div className="site-shell">
         <div
           className={`site-sidebar__backdrop${open ? " open" : ""}`}
@@ -47,7 +51,7 @@ export function Layout() {
 
         <aside className={`site-sidebar${open ? " open" : ""}`}>
           <div className="site-sidebar__top">
-            <NavLink to="/" className="brand" onClick={close}>
+            <NavLink to="/home" className="brand" onClick={close}>
               <img className="brand__logo" src="/logo.png" alt="" width={40} height={40} />
               MagicGen
             </NavLink>
@@ -75,15 +79,41 @@ export function Layout() {
           </nav>
 
           <div className="site-sidebar__foot">
-            <a
-              className="nav-kofi"
-              href="https://ko-fi.com/igottic"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={close}
-            >
-              Support on Ko-fi
-            </a>
+            <div className="site-sidebar__foot-row">
+              <a
+                className="nav-kofi"
+                href="https://ko-fi.com/igottic"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={close}
+              >
+                Support on Ko-fi
+              </a>
+              <NavLink
+                to="/settings"
+                className={({ isActive }) =>
+                  `nav-settings${isActive ? " nav-settings--active" : ""}`
+                }
+                aria-label="Settings"
+                title="Settings"
+                onClick={close}
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </NavLink>
+            </div>
           </div>
         </aside>
 
@@ -121,8 +151,17 @@ export function Layout() {
                     <a href="https://scryfall.com/" target="_blank" rel="noopener noreferrer">
                       Scryfall
                     </a>
-                    . Magic: The Gathering is a trademark of Wizards of the Coast. This site is
-                    unofficial Fan Content permitted under the Fan Content Policy (not affiliated
+                    . Power level and bracket estimates follow the methodology popularized by{" "}
+                    <a
+                      href="https://edhpowerlevel.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      EDH Power Level
+                    </a>{" "}
+                    (impact, efficiency, tipping point); MagicGen is not affiliated with that
+                    project. Magic: The Gathering is a trademark of Wizards of the Coast. This site
+                    is unofficial Fan Content permitted under the Fan Content Policy (not affiliated
                     with Wizards).
                   </p>
                 </div>
@@ -191,6 +230,7 @@ export function Layout() {
           </footer>
         </div>
       </div>
-    </ToastProvider>
+      </ToastProvider>
+    </SettingsProvider>
   );
 }

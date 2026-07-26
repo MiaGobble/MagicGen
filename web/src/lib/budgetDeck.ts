@@ -4,7 +4,7 @@
  * Biases toward a target Commander bracket via EDHREC bracket pages.
  */
 import { BRACKET_META, clampBracket, fetchCheapEdhrecPool } from "./edhrec";
-import { parseMoxfieldList, toMoxfieldList, type DeckLine } from "./moxfield";
+import { parseDeckListAsync, toMoxfieldList, type DeckLine } from "./moxfield";
 import { formatUsd, priceDeck, type PricedCard } from "./pricing";
 import {
   collectionLookup,
@@ -177,7 +177,7 @@ export async function budgetizeDeck(options: BudgetDeckOptions): Promise<BudgetD
     options.onProgress?.({ done, total, label });
   };
 
-  const parsed = parseMoxfieldList(options.listText);
+  const parsed = await parseDeckListAsync(options.listText);
   if (!parsed.length) throw new Error("No cards parsed from list");
 
   const { commander, commanderLines } = await resolveCommanderCard(
@@ -313,6 +313,8 @@ export async function budgetizeDeck(options: BudgetDeckOptions): Promise<BudgetD
         out.push({
           quantity: 1,
           name: replacement.name,
+          setCode: replacement.card.set,
+          collectorNumber: replacement.card.collector_number,
           category: line.category === "Main" ? "Deck" : line.category ?? "Deck",
         });
         return out;
@@ -380,7 +382,7 @@ export async function budgetizeDeck(options: BudgetDeckOptions): Promise<BudgetD
       `Best effort: ${formatUsd(newTotal)} still over the ${formatUsd(maxPrice)} target after ${swaps.length} swap${swaps.length === 1 ? "" : "s"}.`,
     );
   } else if (!swaps.length && originalTotal <= maxPrice) {
-    notes.push("Deck was already under budget — no changes made.");
+    notes.push("Deck was already under budget - no changes made.");
   }
 
   const inBracketCount = working.filter(
@@ -393,8 +395,6 @@ export async function budgetizeDeck(options: BudgetDeckOptions): Promise<BudgetD
 
   const outLines = working.map((l) => ({
     ...l,
-    setCode: undefined,
-    collectorNumber: undefined,
     category: /^commander$/i.test(l.category ?? "")
       ? "Commander"
       : l.category === "Main" || l.category === "Mainboard"
@@ -406,7 +406,7 @@ export async function budgetizeDeck(options: BudgetDeckOptions): Promise<BudgetD
 
   return {
     commanderName: commander.name,
-    list: toMoxfieldList(outLines, false),
+    list: toMoxfieldList(outLines, true),
     lines: outLines,
     originalTotal,
     newTotal,

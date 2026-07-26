@@ -1,14 +1,20 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { DeckActions } from "../components/DeckActions";
+import { FormatBadge } from "../components/FormatBadge";
+import { PowerLevelBadge } from "../components/PowerLevelBadge";
 import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
+import { useDeckExport } from "../hooks/useDeckExport";
 import { budgetizeDeck, type BudgetDeckResult, type BudgetProgress } from "../lib/budgetDeck";
+import { parseDeckListAsync, serializeDeckList } from "../lib/deckFormat";
 import { BRACKET_META, clampBracket } from "../lib/edhrec";
+import { analyzeDeckPower, type PowerReport } from "../lib/powerLevel";
 import { formatUsd } from "../lib/pricing";
 
 export function BudgetDeckPage() {
   const { toast } = useToast();
+  const { format } = useDeckExport();
   const [params] = useSearchParams();
   const initial = useMemo(() => {
     const raw = params.get("list");
@@ -25,14 +31,23 @@ export function BudgetDeckPage() {
   const [bracket, setBracket] = useState(() => clampBracket(Number(params.get("bracket") || 3)));
   const [commanderOverride, setCommanderOverride] = useState("");
   const [result, setResult] = useState<BudgetDeckResult | null>(null);
+  const [powerBefore, setPowerBefore] = useState<PowerReport | null>(null);
+  const [powerAfter, setPowerAfter] = useState<PowerReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<BudgetProgress | null>(null);
+
+  const cutList = useMemo(
+    () => (result ? serializeDeckList(result.lines, { format, includeSet: true }) : ""),
+    [result, format],
+  );
 
   async function onBudgetize() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setPowerBefore(null);
+    setPowerAfter(null);
     setProgress({ done: 0, total: 5, label: "Starting…" });
     try {
       const out = await budgetizeDeck({
@@ -43,6 +58,14 @@ export function BudgetDeckPage() {
         onProgress: setProgress,
       });
       setResult(out);
+      setProgress({ done: 4, total: 6, label: "Analyzing power levels…" });
+      const originalLines = await parseDeckListAsync(input);
+      const [before, after] = await Promise.all([
+        analyzeDeckPower(originalLines).catch(() => null),
+        analyzeDeckPower(out.lines).catch(() => null),
+      ]);
+      setPowerBefore(before);
+      setPowerAfter(after);
       if (out.underBudget) {
         toast(
           `Deck cut to ${formatUsd(out.newTotal)} (${out.swaps.length} swap${out.swaps.length === 1 ? "" : "s"})`,
@@ -180,7 +203,7 @@ export function BudgetDeckPage() {
             <div className="progress-fill" style={{ width: `${progressPct}%` }} />
           </div>
           <p className="progress-block__note muted">
-            EDHREC lookups plus Scryfall pricing — large decks take a bit.
+            EDHREC lookups plus Scryfall pricing - large decks take a bit.
           </p>
         </div>
       )}
@@ -205,6 +228,12 @@ export function BudgetDeckPage() {
             <p className="muted" style={{ marginBottom: 0 }}>
               {result.swaps.length} swap{result.swaps.length === 1 ? "" : "s"}
             </p>
+            {(powerBefore || powerAfter) && (
+              <div style={{ marginTop: "0.85rem", display: "grid", gap: "0.5rem" }}>
+                {powerBefore && <PowerLevelBadge report={powerBefore} title="Before" compact />}
+                {powerAfter && <PowerLevelBadge report={powerAfter} title="After" compact />}
+              </div>
+            )}
           </section>
 
           {result.swaps.length > 0 && (
@@ -232,13 +261,14 @@ export function BudgetDeckPage() {
 
           <section className="panel" style={{ marginTop: "1rem" }}>
             <h2 style={{ marginTop: 0 }}>Cut-cost list</h2>
-            <pre className="list-block">{result.list}</pre>
+            <FormatBadge />
+            <pre className="list-block">{cutList}</pre>
             <div className="actions">
               <button
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => {
-                  void navigator.clipboard.writeText(result.list).then(
+                  void navigator.clipboard.writeText(cutList).then(
                     () => toast("Copied list", "success"),
                     () => toast("Could not copy", "error"),
                   );
@@ -247,7 +277,7 @@ export function BudgetDeckPage() {
                 Copy list
               </button>
             </div>
-            <DeckActions list={result.list} />
+            <DeckActions list={cutList} />
           </section>
         </>
       )}

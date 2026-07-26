@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
-import { parseMoxfieldList } from "../lib/moxfield";
+import { parseDeckListAsync } from "../lib/moxfield";
 import {
   formatUsd,
   optimizePurchase,
@@ -43,7 +43,7 @@ export function BulkPurchasePage() {
     setError(null);
     setProgress({ done: 0, total: 1, label: "Starting…" });
     try {
-      const lines = parseMoxfieldList(input);
+      const lines = await parseDeckListAsync(input);
       if (!lines.length) throw new Error("No cards parsed from list");
       const rows = await priceDeck(lines, anyPrinting, (done, total, label) =>
         setProgress({ done, total, label }),
@@ -83,7 +83,7 @@ export function BulkPurchasePage() {
     if (listMode === "clipboard") {
       toast(
         copied
-          ? "List copied — paste into Cardsphere Wants → Actions → Import"
+          ? "List copied - paste into Cardsphere Wants → Actions → Import"
           : "Open Cardsphere Wants and paste your list (clipboard copy failed)",
         copied ? "success" : "info",
       );
@@ -185,7 +185,7 @@ export function BulkPurchasePage() {
             </div>
             <p className="muted" style={{ marginTop: "0.75rem" }}>
               TCGPlayer Mass Entry, Card Kingdom builder, and Mana Pool add-deck preload your list in
-              the URL. Cardsphere has no cart deep link — we copy the list and open Wants so you can
+              the URL. Cardsphere has no cart deep link - we copy the list and open Wants so you can
               paste into Actions → Import. The list is also copied as a backup for the other vendors.
             </p>
           </section>

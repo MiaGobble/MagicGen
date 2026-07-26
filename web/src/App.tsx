@@ -4,6 +4,7 @@ import { BeginnerStarterPage } from "./pages/BeginnerStarterPage";
 import { BoosterGenPage } from "./pages/BoosterGenPage";
 import { BulkPurchasePage } from "./pages/BulkPurchasePage";
 import { DeckPimpingPage } from "./pages/DeckPimpingPage";
+import { FormatConvertPage } from "./pages/FormatConvertPage";
 import { HomePage } from "./pages/HomePage";
 import { PodGeneratorPage } from "./pages/PodGeneratorPage";
 import { ProxyToolsPage } from "./pages/ProxyToolsPage";
@@ -12,6 +13,9 @@ import { SleeveColorPage } from "./pages/SleeveColorPage";
 import { DiceColorPage } from "./pages/DiceColorPage";
 import { PackWarsPage } from "./pages/PackWarsPage";
 import { BudgetDeckPage } from "./pages/BudgetDeckPage";
+import { PoolDecksPage } from "./pages/PoolDecksPage";
+import { RootEntry } from "./pages/RootEntry";
+import { SettingsPage } from "./pages/SettingsPage";
 import { SuppliesPage } from "./pages/SuppliesPage";
 
 // Vite BASE_URL always ends with "/"; React Router basename must not.
@@ -22,11 +26,14 @@ export default function App() {
     <BrowserRouter basename={basename}>
       <Routes>
         <Route element={<Layout />}>
-          <Route index element={<HomePage />} />
+          <Route index element={<RootEntry />} />
+          <Route path="home" element={<HomePage />} />
           <Route path="commander" element={<RandomCommanderPage />} />
           <Route path="pod" element={<PodGeneratorPage />} />
           <Route path="pimp" element={<DeckPimpingPage />} />
           <Route path="budget" element={<BudgetDeckPage />} />
+          <Route path="convert" element={<FormatConvertPage />} />
+          <Route path="pool-decks" element={<PoolDecksPage />} />
           <Route path="booster" element={<BoosterGenPage />} />
           <Route path="pack-wars" element={<PackWarsPage />} />
           <Route path="proxy" element={<ProxyToolsPage />} />
@@ -35,6 +42,7 @@ export default function App() {
           <Route path="sleeves" element={<SleeveColorPage />} />
           <Route path="dice" element={<DiceColorPage />} />
           <Route path="beginner" element={<BeginnerStarterPage />} />
+          <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

@@ -2,7 +2,7 @@ import { parseManaSymbols } from "../lib/scryfall";
 
 export function ManaCost({ cost }: { cost: string }) {
   const symbols = parseManaSymbols(cost);
-  if (!symbols.length) return <span className="muted">—</span>;
+  if (!symbols.length) return <span className="muted">-</span>;
   return (
     <span className="mana" aria-label={cost}>
       {symbols.map((s, i) => (

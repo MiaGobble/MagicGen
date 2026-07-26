@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { loadSettings } from "../lib/settings";
 
 export type ToastTone = "info" | "success" | "error";
 
@@ -53,7 +54,9 @@ export type KofiToastTool =
   | "proxy"
   | "bulk"
   | "pack-wars"
-  | "budget-deck";
+  | "budget-deck"
+  | "pool-decks"
+  | "format-convert";
 
 function resolveOptions(toneOrOptions?: ToastTone | ToastOptions): Required<
   Pick<ToastOptions, "tone" | "durationMs">
@@ -95,6 +98,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const toast = useCallback(
     (message: string, toneOrOptions?: ToastTone | ToastOptions) => {
+      if (!loadSettings().toastsEnabled) return;
       const { tone, durationMs, action } = resolveOptions(toneOrOptions);
       seq.current += 1;
       const id = `${prefix}-${seq.current}`;
@@ -166,12 +170,14 @@ export function useToast(): ToastContextValue {
 
 /**
  * One-time Ko-fi nudge after a successful generation for a given tool.
- * Safe to call often — shows at most once per tool (localStorage).
+ * Safe to call often - shows at most once per tool (localStorage).
  */
 export function maybeShowKofiSupportToast(
   toast: ToastContextValue["toast"],
   tool: KofiToastTool,
 ): void {
+  if (!loadSettings().kofiEnabled) return;
+  if (!loadSettings().toastsEnabled) return;
   const key = `magicgen-kofi-toast-${tool}`;
   try {
     if (localStorage.getItem(key)) return;

@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { DeckActions } from "../components/DeckActions";
+import { FormatBadge } from "../components/FormatBadge";
 import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
+import { useDeckExport } from "../hooks/useDeckExport";
 import {
   BOOSTER_PRESETS,
   DEFAULT_BOOSTER_RULES,
@@ -11,16 +13,20 @@ import {
   type RarityRule,
 } from "../lib/booster";
 import { getCardImage, type ScryfallCard } from "../lib/scryfall";
-import { cardsToMoxfieldList } from "../lib/moxfield";
+import type { DeckLine } from "../lib/deckFormat";
 
 export function BoosterGenPage() {
   const { toast } = useToast();
+  const { formatLines } = useDeckExport();
   const [preset, setPreset] = useState<BoosterPresetId>("default");
   const [setCode, setSetCode] = useState("");
   const [defaultQuery, setDefaultQuery] = useState(BOOSTER_PRESETS.default.defaultQuery);
   const [packs, setPacks] = useState(1);
   const [rules, setRules] = useState<RarityRule[]>(DEFAULT_BOOSTER_RULES);
   const [pimpedPrintings, setPimpedPrintings] = useState(false);
+  const [uniqueCards, setUniqueCards] = useState(false);
+  const [foilChance, setFoilChance] = useState(0);
+  const [etchedChance, setEtchedChance] = useState(0);
   const [result, setResult] = useState<GeneratedPack[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +70,7 @@ export function BoosterGenPage() {
     }
     setLoading(true);
     setError(null);
-    setProgress({ done: 0, total: packs, label: "Starting…" });
+    setProgress({ done: 0, total: 1, label: "Starting…" });
     try {
       const packsOut = await generateBoosters({
         set: setCode || undefined,
@@ -72,6 +78,9 @@ export function BoosterGenPage() {
         packs,
         rules,
         pimpedPrintings,
+        uniqueCards,
+        foilChance,
+        etchedChance,
         onProgress: (done, total, label) => setProgress({ done, total, label }),
       });
       setResult(packsOut);
@@ -87,7 +96,26 @@ export function BoosterGenPage() {
     }
   }
 
-  const moxfield = result ? cardsToMoxfieldList(result.flatMap((p) => p.cards)) : "";
+  const moxfield = result
+    ? formatLines(
+        result.flatMap((p) => {
+          const lines: DeckLine[] = [];
+          p.cards.forEach((c, i) => {
+            const finish = p.finishes?.[i];
+            lines.push({
+              quantity: 1,
+              name: c.name.split(" // ")[0],
+              setCode: c.set,
+              collectorNumber: c.collector_number,
+              finish,
+              isFoil: finish === "foil" || undefined,
+              category: "Deck",
+            });
+          });
+          return lines;
+        }),
+      )
+    : "";
   const progressPct =
     progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
@@ -101,8 +129,8 @@ export function BoosterGenPage() {
       <header className="tool-header">
         <h1>Booster pack generator</h1>
         <p>
-          Build draftable packs with per-rarity Scryfall queries. Empty rarity queries fall back to
-          the default query.
+          Build draftable packs with per-rarity Scryfall queries. Every pack is filtered to paper,
+          playable cards (no art series, tokens, or digital-only).
         </p>
       </header>
 
@@ -160,6 +188,38 @@ export function BoosterGenPage() {
           />
           Pimped printings (swap each card to a flashier printing)
         </label>
+        <label className="check" style={{ gridColumn: "1 / -1" }}>
+          <input
+            type="checkbox"
+            checked={uniqueCards}
+            onChange={(e) => setUniqueCards(e.target.checked)}
+          />
+          No duplicate cards (one of each name across all packs)
+        </label>
+        <div className="field">
+          <label htmlFor="boost-foil">Foil chance (%)</label>
+          <input
+            id="boost-foil"
+            type="number"
+            min={0}
+            max={100}
+            value={foilChance}
+            onChange={(e) => setFoilChance(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="boost-etched">Etched chance (%)</label>
+          <input
+            id="boost-etched"
+            type="number"
+            min={0}
+            max={100}
+            value={etchedChance}
+            onChange={(e) =>
+              setEtchedChance(Math.max(0, Math.min(100, Number(e.target.value) || 0)))
+            }
+          />
+        </div>
       </div>
 
       <section className="panel" style={{ marginTop: "1rem" }}>
@@ -239,6 +299,10 @@ export function BoosterGenPage() {
           <div className="progress-track">
             <div className="progress-fill" style={{ width: `${progressPct}%` }} />
           </div>
+          <p className="progress-block__note muted">
+            Cards are requested in chunks of 20
+            {progress.total > 1 ? ` · step ${progress.done} of ${progress.total}` : ""}.
+          </p>
         </div>
       )}
 
@@ -264,6 +328,7 @@ export function BoosterGenPage() {
           ))}
           <section className="panel" style={{ marginTop: "1rem" }}>
             <h2 style={{ marginTop: 0 }}>Combined list</h2>
+            <FormatBadge />
             <pre className="list-block">{moxfield}</pre>
             <div className="actions">
               <button

@@ -9,7 +9,7 @@ import {
   isTransientNetworkError,
   searchPrintingsForPimp,
 } from "./scryfall";
-import { parseMoxfieldList, toMoxfieldList, type DeckLine } from "./moxfield";
+import { parseDeckListAsync, toMoxfieldList, type DeckLine } from "./moxfield";
 
 /** Sets that are special product lines (not regular Standard/Commander print runs). */
 const SPECIAL_PRODUCT_SETS = new Set([
@@ -296,24 +296,13 @@ function samePrinting(a: ScryfallCard, line: DeckLine): boolean {
   return a.collector_number === line.collectorNumber;
 }
 
-/**
- * Among available paper printings, never pick a plain default when a special
- * treatment exists. Prefer away from the user's original printing.
- */
-function pickBestPrinting(prints: ScryfallCard[], line: DeckLine): ScryfallCard {
-  const ranked = [...prints].sort((a, b) => scorePrinting(b) - scorePrinting(a));
-  const specials = ranked.filter(hasSpecialTreatment);
-  const nonPlain = ranked.filter((c) => !isPlainDefaultPrinting(c));
-
-  // Prefer special treatments; else any non-plain; else best-scored among plains
-  let pool = specials.length ? specials : nonPlain.length ? nonPlain : ranked;
-
-  // Prefer a different printing than the input when alternatives exist
-  const different = pool.filter((c) => !samePrinting(c, line));
-  if (different.length) pool = different;
-
-  return pool[0];
-}
+export type PimpFinishPrefs = {
+  preferFoil?: boolean;
+  preferEtched?: boolean;
+  preferGlossy?: boolean;
+  /** Avoid nonfoil when a foil/etched option exists for the chosen printing family. */
+  avoidNonfoil?: boolean;
+};
 
 export type PimpPick = {
   /** Index into `lines` for this printing. */
@@ -332,11 +321,67 @@ export type PimpResult = {
 
 export type PimpProgress = (done: number, total: number) => void;
 
+function scorePrintingWithPrefs(card: ScryfallCard, prefs?: PimpFinishPrefs): number {
+  let score = scorePrinting(card);
+  const finishes = card.finishes ?? [];
+  if (prefs?.preferEtched && finishes.includes("etched")) score += 80;
+  if (prefs?.preferFoil && finishes.includes("foil")) score += 55;
+  if (prefs?.preferGlossy && finishes.includes("glossy")) score += 40;
+  if (prefs?.avoidNonfoil && finishes.length === 1 && finishes[0] === "nonfoil") score -= 40;
+  if (prefs?.preferFoil && !finishes.includes("foil") && !finishes.includes("etched")) score -= 15;
+  return score;
+}
+
+function finishForCard(card: ScryfallCard, prefs?: PimpFinishPrefs): string | undefined {
+  const finishes = card.finishes ?? [];
+  if (prefs?.preferEtched && finishes.includes("etched")) return "etched";
+  if (prefs?.preferFoil && finishes.includes("foil")) return "foil";
+  if (prefs?.preferGlossy && finishes.includes("glossy")) return "glossy";
+  if (finishes.includes("etched")) return "etched";
+  if (finishes.includes("foil") && prefs?.preferFoil) return "foil";
+  return undefined;
+}
+
+/**
+ * Among available paper printings, never pick a plain default when a special
+ * treatment exists. Prefer away from the user's original printing.
+ */
+function pickBestPrinting(
+  prints: ScryfallCard[],
+  line: DeckLine,
+  prefs?: PimpFinishPrefs,
+): ScryfallCard {
+  const ranked = [...prints].sort(
+    (a, b) => scorePrintingWithPrefs(b, prefs) - scorePrintingWithPrefs(a, prefs),
+  );
+  const specials = ranked.filter(hasSpecialTreatment);
+  const nonPlain = ranked.filter((c) => !isPlainDefaultPrinting(c));
+
+  let pool = specials.length ? specials : nonPlain.length ? nonPlain : ranked;
+
+  if (prefs?.preferEtched) {
+    const etched = pool.filter((c) => c.finishes?.includes("etched"));
+    if (etched.length) pool = etched;
+  } else if (prefs?.preferFoil) {
+    const foils = pool.filter((c) => c.finishes?.includes("foil") || c.finishes?.includes("etched"));
+    if (foils.length) pool = foils;
+  } else if (prefs?.preferGlossy) {
+    const glossy = pool.filter((c) => c.finishes?.includes("glossy"));
+    if (glossy.length) pool = glossy;
+  }
+
+  const different = pool.filter((c) => !samePrinting(c, line));
+  if (different.length) pool = different;
+
+  return pool[0];
+}
+
 export async function pimpDeckList(
   text: string,
   onProgress?: PimpProgress,
+  prefs?: PimpFinishPrefs,
 ): Promise<PimpResult> {
-  const parsed = parseMoxfieldList(text);
+  const parsed = await parseDeckListAsync(text);
   const notes: string[] = [];
   const out: DeckLine[] = [];
   const cards: ScryfallCard[] = [];
@@ -356,14 +401,16 @@ export async function pimpDeckList(
         continue;
       }
 
-      // When multiple printings exist, always pick via scoring (never early-exit to original)
-      const best = prints.length === 1 ? prints[0] : pickBestPrinting(prints, line);
+      const best = prints.length === 1 ? prints[0] : pickBestPrinting(prints, line, prefs);
+      const finish = finishForCard(best, prefs);
 
       out.push({
         ...line,
         setCode: best.set,
         collectorNumber: best.collector_number,
         category: line.category ?? "Deck",
+        finish,
+        isFoil: finish === "foil" || undefined,
       });
       cards.push(best);
       picks.push({ lineIndex: out.length - 1, card: best });
@@ -373,10 +420,13 @@ export async function pimpDeckList(
         line.setCode.toLowerCase() !== (best.set ?? "").toLowerCase() ||
         (line.collectorNumber != null && line.collectorNumber !== best.collector_number);
 
+      const finishNote = finish ? ` · ${finish}` : "";
       if (changed && line.setCode) {
-        notes.push(`${line.name}: ${line.setCode} → ${best.set} (${best.set_name}) #${best.collector_number}`);
+        notes.push(
+          `${line.name}: ${line.setCode} -> ${best.set} (${best.set_name}) #${best.collector_number}${finishNote}`,
+        );
       } else {
-        notes.push(`${line.name}: ${best.set_name} #${best.collector_number}`);
+        notes.push(`${line.name}: ${best.set_name} #${best.collector_number}${finishNote}`);
       }
     } catch (err) {
       out.push(line);

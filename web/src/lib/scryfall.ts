@@ -41,6 +41,8 @@ export type ScryfallCard = {
   full_art?: boolean;
   textless?: boolean;
   promo?: boolean;
+  edhrec_rank?: number | null;
+  reserved?: boolean;
 };
 
 export type ScryfallList = {
@@ -298,6 +300,24 @@ export async function randomCommander(filters: CommanderFilters): Promise<Scryfa
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes("404") || message.includes("No cards") || message.includes("not_found")) {
       throw new Error("no commanders within filters found");
+    }
+    throw err;
+  }
+}
+
+/** Random card matching a Scryfall query. Returns null when nothing matches. */
+export async function randomCard(query: string): Promise<ScryfallCard | null> {
+  const q = encodeURIComponent(query.trim());
+  if (!q) return null;
+  try {
+    return await scryfallFetch<ScryfallCard>(`/cards/random?q=${q}`);
+  } catch (err) {
+    if (err instanceof ScryfallHttpError && (err.isNotFound || err.status === 400)) {
+      return null;
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("404") || message.includes("No cards") || message.includes("not_found")) {
+      return null;
     }
     throw err;
   }

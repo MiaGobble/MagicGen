@@ -107,7 +107,7 @@ export function PodGeneratorPage() {
               <strong>Bracket filter.</strong> Unseeded seats (and partners) must show meaningful
               EDHREC play in the selected Commander bracket via{" "}
               <code>bracket_counts</code>. Bracket 5 (cEDH) requires a high deck count and either a
-              strong cEDH share or established volume — fringe “tagged cEDH” commanders are skipped.
+              strong cEDH share or established volume - fringe “tagged cEDH” commanders are skipped.
               High brackets also prefer EDHREC-popular commanders and efficient / partner-capable
               profiles. Seeded names are kept as-is.
             </li>

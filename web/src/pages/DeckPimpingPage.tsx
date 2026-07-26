@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
+import { FormatBadge } from "../components/FormatBadge";
 import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
-import { toMoxfieldList, type DeckLine } from "../lib/moxfield";
-import { pimpDeckList, type PimpPick } from "../lib/pimp";
+import { useDeckExport } from "../hooks/useDeckExport";
+import { type DeckLine } from "../lib/moxfield";
+import { pimpDeckList, type PimpFinishPrefs, type PimpPick } from "../lib/pimp";
 import { getCardImage, searchPrintingsForPimp, type ScryfallCard } from "../lib/scryfall";
 
 function artCrop(card: ScryfallCard) {
@@ -18,6 +20,7 @@ function printingLabel(card: ScryfallCard) {
 
 export function DeckPimpingPage() {
   const { toast } = useToast();
+  const { formatLines } = useDeckExport();
   const [params] = useSearchParams();
   const initial = useMemo(() => {
     try {
@@ -35,6 +38,10 @@ export function DeckPimpingPage() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [preferFoil, setPreferFoil] = useState(false);
+  const [preferEtched, setPreferEtched] = useState(false);
+  const [preferGlossy, setPreferGlossy] = useState(false);
+  const [avoidNonfoil, setAvoidNonfoil] = useState(false);
 
   const [editingPick, setEditingPick] = useState<number | null>(null);
   const [printOptions, setPrintOptions] = useState<ScryfallCard[]>([]);
@@ -66,11 +73,21 @@ export function DeckPimpingPage() {
     setEditingPick(null);
     setPrintOptions([]);
     try {
-      const result = await pimpDeckList(input, (done, total) => {
-        setProgress({ done, total });
-      });
-      setOutput(result.list);
+      const prefs: PimpFinishPrefs = {
+        preferFoil,
+        preferEtched,
+        preferGlossy,
+        avoidNonfoil,
+      };
+      const result = await pimpDeckList(
+        input,
+        (done, total) => {
+          setProgress({ done, total });
+        },
+        prefs,
+      );
       setLines(result.lines);
+      setOutput(formatLines(result.lines));
       setPicks(result.picks);
       setNotes(result.notes);
       toast(`Pimped ${result.cards.length} card${result.cards.length === 1 ? "" : "s"}`, "success");
@@ -132,13 +149,20 @@ export function DeckPimpingPage() {
             ...l,
             setCode: printing.set,
             collectorNumber: printing.collector_number,
+            finish: printing.finishes?.includes("etched")
+              ? "etched"
+              : printing.finishes?.includes("foil") && preferFoil
+                ? "foil"
+                : l.finish,
+            isFoil:
+              printing.finishes?.includes("foil") && preferFoil ? true : l.isFoil,
           }
         : l,
     );
 
     setPicks(nextPicks);
     setLines(nextLines);
-    setOutput(toMoxfieldList(nextLines, true));
+    setOutput(formatLines(nextLines));
     setNotes((prev) => [
       `${printing.name}: manually set to ${printing.set_name} #${printing.collector_number}`,
       ...prev,
@@ -151,12 +175,15 @@ export function DeckPimpingPage() {
     <div className="tool-page container">
       <Seo
         title="Deck Pimping"
-        description="Paste a Moxfield-style Magic deck list and upgrade each card to a cooler, more desirable printing."
+        description="Paste a Magic deck list (Moxfield, Archidekt, HXDEC, plain text) and upgrade each card to a cooler printing."
         path="/pimp"
       />
       <header className="tool-header">
         <h1>Deck pimping</h1>
-        <p>Paste a Moxfield-style list and swap each card to a cooler, more desirable printing.</p>
+        <p>
+          Paste a deck list and swap each card to a cooler printing. Moxfield, Archidekt, HXDEC,
+          Arena, and plain lists all work.
+        </p>
       </header>
 
       <details className="panel methodology">
@@ -196,7 +223,7 @@ export function DeckPimpingPage() {
         </div>
       </details>
 
-      <div className="split">
+      <div className="split pimp-io">
         <div className="field">
           <label htmlFor="pimp-in">Input list</label>
           <textarea
@@ -207,10 +234,52 @@ export function DeckPimpingPage() {
           />
         </div>
         <div className="field">
-          <label htmlFor="pimp-out">Pimped Moxfield list</label>
+          <label htmlFor="pimp-out">Pimped list</label>
           <textarea id="pimp-out" value={output} readOnly placeholder="Results appear here…" />
+          {output && <FormatBadge compact />}
         </div>
       </div>
+
+      <section className="panel pimp-finish">
+        <h2>Finish preferences</h2>
+        <p className="muted">
+          Bias automatic picks toward these finishes when Scryfall has them for a card.
+        </p>
+        <div className="check-row">
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={preferFoil}
+              onChange={(e) => setPreferFoil(e.target.checked)}
+            />
+            Prefer foil
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={preferEtched}
+              onChange={(e) => setPreferEtched(e.target.checked)}
+            />
+            Prefer etched
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={preferGlossy}
+              onChange={(e) => setPreferGlossy(e.target.checked)}
+            />
+            Prefer glossy
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={avoidNonfoil}
+              onChange={(e) => setAvoidNonfoil(e.target.checked)}
+            />
+            Avoid nonfoil-only printings
+          </label>
+        </div>
+      </section>
 
       <div className="actions">
         <button type="button" className="btn btn-primary" onClick={onPimp} disabled={loading || !input.trim()}>

@@ -5,6 +5,7 @@
 import {
   DEFAULT_BOOSTER_QUERY,
   generateBoosters,
+  isPlayableBoosterCard,
 } from "./booster";
 import { toMoxfieldList, type DeckLine } from "./moxfield";
 import { namedExact, type ScryfallCard } from "./scryfall";
@@ -62,13 +63,8 @@ function isBasicLand(card: ScryfallCard): boolean {
 }
 
 function isPlayablePackCard(card: ScryfallCard): boolean {
-  if (card.digital) return false;
   if (isBasicLand(card)) return false;
-  const layout = card.layout ?? "";
-  if (layout === "token" || layout === "art_series" || layout === "double_faced_token") {
-    return false;
-  }
-  return true;
+  return isPlayableBoosterCard(card);
 }
 
 async function openOnePack(config: PackWarsConfig): Promise<ScryfallCard[]> {

@@ -1,4 +1,4 @@
-import type { ScryfallCard } from "./scryfall";
+import { collectionLookup, type ScryfallCard } from "./scryfall";
 import { isAllowedEdhrecUrl } from "./safeUrl";
 import { toMoxfieldList, type DeckLine } from "./moxfield";
 
@@ -351,6 +351,59 @@ export function edhrecCardPool(
   });
 }
 
+/**
+ * Synergy scores for cards commonly played with a commander (EDHREC).
+ * Prefers Optimized (4) then Upgraded (3) pages, then overall.
+ * Average-deck inclusions get a large bonus so builds lean staples / high power.
+ */
+export async function fetchCommanderSynergyScores(
+  commanderName: string,
+): Promise<Map<string, number>> {
+  const scores = new Map<string, number>();
+  const name = commanderName.split(" // ")[0].trim();
+  if (!name) return scores;
+
+  let page: EdhrecPage | null = null;
+  for (const bracket of [4, 3] as const) {
+    try {
+      page = await fetchEdhrecCommander(name, bracket);
+      if (page?.container?.json_dict?.cardlists?.length) break;
+    } catch {
+      page = null;
+    }
+  }
+  if (!page) {
+    try {
+      page = await fetchEdhrecCommander(name);
+    } catch {
+      return scores;
+    }
+  }
+
+  for (const c of edhrecCardPool(page, { includeGameChangers: true })) {
+    const key = normalizeCardName(c.name);
+    // EDHREC synergy is typically a small fraction; amplify with deck-count signal.
+    const s = c.synergy * 200 + Math.log10((c.numDecks || 0) + 1) * 14;
+    scores.set(key, Math.max(scores.get(key) ?? 0, s));
+  }
+
+  for (const bracket of [4, 3, undefined] as const) {
+    try {
+      const avg = await fetchAverageDeckJson(name, bracket);
+      if (!avg?.data) continue;
+      for (const cardName of namesFromAverageDeck(avg.data)) {
+        const key = normalizeCardName(cardName);
+        scores.set(key, (scores.get(key) ?? 0) + 90);
+      }
+      break;
+    } catch {
+      // try next bracket
+    }
+  }
+
+  return scores;
+}
+
 function namesFromAverageDeck(avg: AverageDeckJson): string[] {
   if (!avg.deck) return [];
   if (Array.isArray(avg.deck)) {
@@ -590,11 +643,38 @@ export async function generateAverageDeck(
   main = fitDeckSize(main, 99, colorId);
 
   const lines: DeckLine[] = [
-    { quantity: 1, name: commander.name, category: "Commander" },
+    {
+      quantity: 1,
+      name: commander.name,
+      setCode: commander.set,
+      collectorNumber: commander.collector_number,
+      category: "Commander",
+    },
     ...main.map((l) => ({ ...l, category: "Deck" as const })),
   ];
 
-  const list = toMoxfieldList(lines, false);
+  // Attach set + collector numbers so HXDEC / Moxfield exports match the selected format.
+  try {
+    const names = [...new Set(lines.map((l) => l.name.split(" // ")[0].trim()))];
+    const resolved = await collectionLookup(names.map((name) => ({ name })));
+    const byName = new Map<string, ScryfallCard>();
+    for (const c of resolved) {
+      byName.set(c.name.toLowerCase().split(" // ")[0], c);
+      byName.set(c.name.toLowerCase(), c);
+    }
+    for (const line of lines) {
+      if (line.setCode && line.collectorNumber) continue;
+      const card = byName.get(line.name.toLowerCase().split(" // ")[0]);
+      if (!card) continue;
+      line.setCode = card.set;
+      line.collectorNumber = card.collector_number;
+      if (!line.name.includes(" // ")) line.name = card.name.split(" // ")[0];
+    }
+  } catch {
+    /* export still works without set codes for non-HXDEC formats */
+  }
+
+  const list = toMoxfieldList(lines, true);
   const total = lines.reduce((s, l) => s + l.quantity, 0);
   if (total !== 100) {
     throw new Error(`Deck size invariant failed: got ${total} cards (expected 100)`);

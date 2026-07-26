@@ -24,6 +24,16 @@ const TOOLS = [
     blurb: "Cut a commander list down to a max Scryfall price with EDHREC swaps.",
   },
   {
+    to: "/convert",
+    title: "Format converter",
+    blurb: "Convert between Moxfield, Archidekt, HXDEC, and plain text with loss warnings.",
+  },
+  {
+    to: "/pool-decks",
+    title: "Pool to decks",
+    blurb: "Split a shared card pool into multiple Commander decks.",
+  },
+  {
     to: "/booster",
     title: "Booster generator",
     blurb: "Craft custom draft packs with rarity queries.",

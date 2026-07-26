@@ -187,11 +187,39 @@ textarea {
 
 .site-sidebar__foot {
   margin-top: auto;
-  padding: 0.35rem;
+  padding: 0.5rem 0.65rem 0.75rem;
 }
 
-.site-sidebar__backdrop {
-  display: none;
+.site-sidebar__foot-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.site-sidebar__foot-row .nav-kofi {
+  flex: 1;
+  min-width: 0;
+}
+
+.nav-settings {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-sm);
+  color: var(--ink-muted);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.35);
+  text-decoration: none;
+}
+
+.nav-settings:hover,
+.nav-settings--active {
+  color: var(--navy);
+  background: rgba(255, 255, 255, 0.7);
+  border-color: color-mix(in srgb, var(--navy) 25%, var(--border));
 }
 
 .site-mobile-bar {
@@ -572,6 +600,27 @@ kbd {
   display: grid;
   gap: 1.25rem;
   grid-template-columns: 1fr 1.1fr;
+  align-items: start;
+}
+
+.convert-io .field textarea {
+  min-height: 14rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.convert-actions {
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.convert-actions .muted {
+  margin: 0;
+}
+
+.convert-warnings {
+  border-color: color-mix(in srgb, var(--red, #c0392b) 35%, var(--border));
+  background: color-mix(in srgb, var(--red, #c0392b) 6%, var(--surface));
 }
 
 .card-art {
@@ -907,6 +956,61 @@ kbd {
   margin-bottom: 1.25rem;
 }
 
+/* Settings page: consistent panel padding and vertical rhythm */
+.settings-page .panel.settings-panel {
+  padding: 1.35rem 1.5rem 1.4rem;
+  margin-bottom: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  box-sizing: border-box;
+}
+
+.settings-page .settings-panel h2 {
+  margin: 0;
+  padding: 0;
+  font-size: 1.15rem;
+}
+
+.settings-page .settings-panel > .muted {
+  margin: 0;
+  padding: 0;
+}
+
+.settings-page .settings-options {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+}
+
+.settings-page .settings-option.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.settings-page .settings-option__blurb {
+  display: block;
+  font-weight: 400;
+  margin-top: 0.15rem;
+}
+
+.settings-page .settings-panel .field {
+  margin: 0;
+  gap: 0.5rem;
+}
+
+.settings-page .settings-panel .field label {
+  margin: 0;
+  padding: 0;
+}
+
 /* Reset panel padding so summary/body own the spacing (marker stays inside). */
 details.panel.methodology {
   padding: 0;
@@ -963,6 +1067,38 @@ details.panel.methodology {
   pointer-events: none;
   z-index: 3;
   border-color: #b42828;
+}
+
+.pimp-io {
+  margin-bottom: 1rem;
+  align-items: start;
+}
+
+.pimp-io .field textarea {
+  min-height: 10rem;
+  margin-bottom: 0;
+}
+
+.pimp-finish {
+  margin: 0 0 0.35rem;
+  padding: 1rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.pimp-finish h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.pimp-finish > .muted {
+  margin: 0;
+}
+
+.pimp-finish .check-row {
+  margin: 0;
+  gap: 0.65rem 1.25rem;
 }
 
 .pimp-gallery {

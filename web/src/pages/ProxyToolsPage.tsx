@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router";
 import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
 import { proxySupplyLinks } from "../lib/amazon";
-import { parseMoxfieldList } from "../lib/moxfield";
+import { parseDeckListAsync } from "../lib/moxfield";
 import { generateProxyPdf, type ProxyPdfOptions } from "../lib/proxyPdf";
 import { collectionLookupDetailed, getCardImage, namedCard, namedExact, searchCards, type ScryfallCard } from "../lib/scryfall";
 
@@ -55,7 +55,7 @@ export function ProxyToolsPage() {
     setLoading(true);
     setError(null);
     try {
-      const lines = parseMoxfieldList(text);
+      const lines = await parseDeckListAsync(text);
       if (!lines.length) throw new Error("No cards found in the list");
 
       const idents = lines.map((l) => ({ name: l.name.split(" // ")[0] }));
@@ -269,8 +269,17 @@ export function ProxyToolsPage() {
 
         <div className="panel">
           <div className="field">
-            <label htmlFor="proxy-list">Import Moxfield list</label>
-            <textarea id="proxy-list" value={listText} onChange={(e) => setListText(e.target.value)} />
+            <label htmlFor="proxy-list">Import deck list</label>
+            <p className="muted" style={{ margin: "0 0 0.45rem", fontSize: "0.88rem" }}>
+              Accepts Moxfield, Archidekt, HXDEC, Arena, MTGO, and plain{" "}
+              <code>1 Card Name</code> lists.
+            </p>
+            <textarea
+              id="proxy-list"
+              value={listText}
+              onChange={(e) => setListText(e.target.value)}
+              placeholder={"1 Sol Ring\n1 Arcane Signet\n1 Command Tower"}
+            />
           </div>
           <label className="check">
             <input

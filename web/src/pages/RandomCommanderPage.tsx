@@ -1,10 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { CommanderFilters, DEFAULT_FILTERS, type FilterState } from "../components/CommanderFilters";
+import { FormatBadge } from "../components/FormatBadge";
+import { PowerLevelBadge } from "../components/PowerLevelBadge";
 import { ColorIdentity, ManaCost } from "../components/Mana";
 import { Seo } from "../components/Seo";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
+import { useDeckExport } from "../hooks/useDeckExport";
+import type { DeckLine } from "../lib/deckFormat";
+import { serializeDeckList } from "../lib/deckFormat";
 import { generateAverageDeck, edhrecUrl, BRACKET_META, clampBracket } from "../lib/edhrec";
+import { analyzeDeckPower, type PowerReport } from "../lib/powerLevel";
 import {
   CARD_BACK_URL,
   getCardFaceImages,
@@ -19,6 +25,7 @@ import {
 
 export function RandomCommanderPage() {
   const { toast } = useToast();
+  const { format } = useDeckExport();
   const [params] = useSearchParams();
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [card, setCard] = useState<ScryfallCard | null>(null);
@@ -27,10 +34,21 @@ export function RandomCommanderPage() {
   const [flipping, setFlipping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [deck, setDeck] = useState<string | null>(null);
+  const [deckLines, setDeckLines] = useState<DeckLine[] | null>(null);
   const [deckSource, setDeckSource] = useState<string | null>(null);
+  const [deckPower, setDeckPower] = useState<PowerReport | null>(null);
   const [bracket, setBracket] = useState(clampBracket(Number(params.get("bracket") || 3)));
   const [deckLoading, setDeckLoading] = useState(false);
+  const [deckProgress, setDeckProgress] = useState<{
+    done: number;
+    total: number;
+    label: string;
+  } | null>(null);
+
+  const deck = useMemo(
+    () => (deckLines ? serializeDeckList(deckLines, { format, includeSet: true }) : null),
+    [deckLines, format],
+  );
 
   const faceImages = card ? getCardFaceImages(card, "normal") : [];
   const multiFace = card ? isMultiFaceCard(card) : false;
@@ -50,8 +68,13 @@ export function RandomCommanderPage() {
         if (params.get("autodeck") === "1") {
           const result = await generateAverageDeck(c, clampBracket(Number(params.get("bracket") || 3)));
           if (!cancelled) {
-            setDeck(result.list);
+            setDeckLines(result.lines);
             setDeckSource(result.source);
+            try {
+              setDeckPower(await analyzeDeckPower(result.lines));
+            } catch {
+              setDeckPower(null);
+            }
           }
         }
       } catch (err) {
@@ -78,8 +101,9 @@ export function RandomCommanderPage() {
 
   const onNewCommander = useCallback(async () => {
     setError(null);
-    setDeck(null);
+    setDeckLines(null);
     setDeckSource(null);
+    setDeckPower(null);
     setLoading(true);
     try {
       const next = await randomCommander({
@@ -125,10 +149,29 @@ export function RandomCommanderPage() {
     if (!card) return;
     setDeckLoading(true);
     setError(null);
+    setDeckPower(null);
+    setDeckProgress({ done: 0, total: 4, label: "Fetching EDHREC average deck…" });
     try {
+      setDeckProgress({ done: 1, total: 4, label: "Building 100-card list…" });
       const result = await generateAverageDeck(card, bracket);
-      setDeck(result.list);
+      setDeckLines(result.lines);
       setDeckSource(result.source);
+      setDeckProgress({ done: 2, total: 4, label: "Resolving cards for power analysis…" });
+      try {
+        setDeckPower(
+          await analyzeDeckPower(result.lines, {
+            onProgress: (p) =>
+              setDeckProgress({
+                done: 2 + Math.min(1, p.done / Math.max(p.total, 1)),
+                total: 4,
+                label: p.label,
+              }),
+          }),
+        );
+      } catch {
+        setDeckPower(null);
+      }
+      setDeckProgress({ done: 4, total: 4, label: "Done" });
       toast("Average deck ready", "success");
       maybeShowKofiSupportToast(toast, "commander-deck");
     } catch (err) {
@@ -136,8 +179,14 @@ export function RandomCommanderPage() {
       toast("Deck generation failed", "error");
     } finally {
       setDeckLoading(false);
+      setDeckProgress(null);
     }
   }
+
+  const deckProgressPct =
+    deckProgress && deckProgress.total > 0
+      ? Math.round((deckProgress.done / deckProgress.total) * 100)
+      : 0;
 
   function showFace(index: number) {
     if (!card || !faceImages[index]) return;
@@ -270,16 +319,35 @@ export function RandomCommanderPage() {
         </div>
       </div>
 
+      {deckLoading && deckProgress && (
+        <div
+          className="progress-block"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={deckProgressPct}
+          aria-label="Deck generation progress"
+          style={{ marginTop: "1.25rem" }}
+        >
+          <div className="progress-block__meta">
+            <span>{deckProgress.label}</span>
+            <span>{deckProgressPct}%</span>
+          </div>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${deckProgressPct}%` }} />
+          </div>
+          <p className="progress-block__note muted">
+            Building the EDHREC list, then scoring power level and bracket.
+          </p>
+        </div>
+      )}
+
       {deck && (
         <section className="panel" style={{ marginTop: "1.5rem" }}>
           <h2>Generated deck</h2>
-          <p className="muted">
-            Source: {deckSource}. For a power-level read, try{" "}
-            <a href="https://edhpowerlevel.com/" target="_blank" rel="noopener noreferrer">
-              edhpowerlevel.com
-            </a>
-            .
-          </p>
+          <p className="muted">Source: {deckSource}.</p>
+          {deckPower && <PowerLevelBadge report={deckPower} />}
+          <FormatBadge />
           <pre className="list-block">{deck}</pre>
           <div className="actions">
             <Link className="btn btn-brass" to={`/bulk?list=${encodeURIComponent(deck)}`}>
