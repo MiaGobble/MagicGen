@@ -68,11 +68,11 @@ export function BudgetDeckPage() {
       setPowerAfter(after);
       if (out.underBudget) {
         toast(
-          `Deck cut to ${formatUsd(out.newTotal)} (${out.swaps.length} swap${out.swaps.length === 1 ? "" : "s"})`,
+          `Cut to est. ${formatUsd(out.estimatedPurchaseTotal)} (${out.swaps.length} swap${out.swaps.length === 1 ? "" : "s"})`,
           "success",
         );
       } else {
-        toast(`Best effort: ${formatUsd(out.newTotal)} (still over target)`, "info");
+        toast(`Best effort: est. ${formatUsd(out.estimatedPurchaseTotal)} (still over target)`, "info");
       }
       maybeShowKofiSupportToast(toast, "budget-deck");
     } catch (err) {
@@ -97,8 +97,8 @@ export function BudgetDeckPage() {
       <header className="tool-header">
         <h1>Deck cost cutter</h1>
         <p>
-          Set a max Scryfall price, paste your commander list, and replace expensive cards with
-          cheaper EDHREC recommendations.
+          Set a max all-in purchase budget (cards + estimated shipping), paste your commander list,
+          and replace expensive cards with cheaper EDHREC recommendations.
         </p>
       </header>
 
@@ -109,6 +109,9 @@ export function BudgetDeckPage() {
             The commander stays fixed. Everything else (including pricey nonbasics) can be swapped.
             Basics are left alone. Replacements come from EDHREC for your target bracket (plus budget
             fillers for lower brackets), filtered to color identity, then priced via Scryfall USD.
+            The budget target uses an estimated purchase total that includes shipping — TCGPlayer
+            mass-entry is modeled as many marketplace sellers, while single stores use flat fees /
+            free-ship thresholds.
           </p>
           <ul>
             <li>
@@ -120,8 +123,8 @@ export function BudgetDeckPage() {
               expensive off-bracket cards first; prefers in-bracket cheap replacements.
             </li>
             <li>
-              <strong>Swap.</strong> Repeatedly replaces expensive cards until you hit the budget or
-              run out of cheaper swaps.
+              <strong>Swap.</strong> Repeatedly replaces expensive cards until estimated purchase
+              cost (cards + shipping) hits the budget or cheaper swaps run out.
             </li>
           </ul>
         </div>
@@ -129,7 +132,7 @@ export function BudgetDeckPage() {
 
       <div className="split">
         <div className="field">
-          <label htmlFor="budget-max">Max deck price (USD)</label>
+          <label htmlFor="budget-max">Max purchase budget (USD, incl. shipping)</label>
           <input
             id="budget-max"
             type="number"
@@ -215,9 +218,14 @@ export function BudgetDeckPage() {
           <section className="panel" style={{ marginTop: "1.25rem" }}>
             <h2 style={{ marginTop: 0 }}>{result.commanderName}</h2>
             <p>
-              <strong>{formatUsd(result.originalTotal)}</strong>
+              Cards <strong>{formatUsd(result.originalTotal)}</strong>
               {" → "}
               <strong>{formatUsd(result.newTotal)}</strong>
+              <span className="muted">
+                {" "}
+                · est. purchase <strong>{formatUsd(result.estimatedPurchaseTotal)}</strong> (incl. ~
+                {formatUsd(result.estimatedShipping)} ship)
+              </span>
               <span className="muted">
                 {" "}
                 (target {formatUsd(result.maxPrice)} · Bracket {result.bracket} ·{" "}

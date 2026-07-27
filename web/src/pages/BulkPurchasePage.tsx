@@ -105,10 +105,35 @@ export function BulkPurchasePage() {
       <header className="tool-header">
         <h1>Bulk purchasing</h1>
         <p>
-          Paste a Moxfield list, compare vendor totals (Scryfall USD + estimated shipping), and open
-          mass-entry / builder pages with your list preloaded.
+          Paste a Moxfield list, compare vendor totals with realistic shipping (TCGPlayer mass-entry
+          often means many sellers), and open mass-entry / builder pages with your list preloaded.
         </p>
       </header>
+
+      <details className="panel methodology">
+        <summary>How shipping is estimated</summary>
+        <div className="methodology__body">
+          <p>
+            Card prices are Scryfall USD (not live store inventory). Shipping is modeled so totals
+            are not wildly optimistic:
+          </p>
+          <ul>
+            <li>
+              <strong>TCGPlayer.</strong> Mass-entry carts usually pull from many marketplace
+              sellers. We estimate ~1 seller per 2.5 priced lines at ~$1.49 each — often much more
+              than a single $4.99 fee.
+            </li>
+            <li>
+              <strong>Card Kingdom / Mana Pool.</strong> One warehouse fee, with free shipping
+              modeled at $50+ subtotal.
+            </li>
+            <li>
+              <strong>Optimized plan.</strong> Prefers a single storefront once shipping is counted;
+              multi-vendor splits only win if they still beat that all-in.
+            </li>
+          </ul>
+        </div>
+      </details>
 
       <div className="field">
         <label htmlFor="bulk-list">Deck / list</label>
@@ -177,7 +202,9 @@ export function BulkPurchasePage() {
                   <span>{q.name}</span>
                   <strong>{formatUsd(q.grandTotal)}</strong>
                   <span className="muted">
-                    {formatUsd(q.total)} + {formatUsd(q.shipping)} ship ·{" "}
+                    {formatUsd(q.total)} + {formatUsd(q.shipping)} ship
+                    {q.sellers && q.sellers > 1 ? ` · ~${q.sellers} sellers` : ""}
+                    {q.shippingNote ? ` · ${q.shippingNote}` : ""} ·{" "}
                     {q.listMode === "prefill" ? "list preloaded" : "copy list + open import"}
                   </span>
                 </button>
@@ -194,8 +221,8 @@ export function BulkPurchasePage() {
             <section className="panel" style={{ marginTop: "1rem" }}>
               <h2 style={{ marginTop: 0 }}>Optimized price</h2>
               <p>
-                Best modeled total: <strong>{formatUsd(optimized.grandTotal)}</strong> (includes
-                shipping per vendor used)
+                Best modeled total: <strong>{formatUsd(optimized.grandTotal)}</strong>
+                <span className="muted"> — {optimized.strategyNote}</span>
               </p>
               <div className="field-grid">
                 {Object.entries(optimized.vendorTotals).map(([id, v]) => {
@@ -210,7 +237,13 @@ export function BulkPurchasePage() {
                     <div key={id} className="panel">
                       <strong>{id}</strong>
                       <div>{v.cards} cards</div>
-                      <div>{formatUsd(v.total)}</div>
+                      <div>{formatUsd(v.subtotal)} + {formatUsd(v.shipping)} ship</div>
+                      <div>
+                        <strong>{formatUsd(v.total)}</strong>
+                        {v.sellers && v.sellers > 1 ? (
+                          <span className="muted"> · ~{v.sellers} sellers</span>
+                        ) : null}
+                      </div>
                       <button
                         type="button"
                         className="btn btn-secondary"

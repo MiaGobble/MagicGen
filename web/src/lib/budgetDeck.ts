@@ -1,11 +1,17 @@
 /**
  * Budgetize a commander deck: swap expensive cards for cheaper EDHREC picks
- * until the Scryfall USD total is under the user's max price.
+ * until the estimated all-in purchase cost (Scryfall USD + modeled shipping)
+ * is under the user's max price.
  * Biases toward a target Commander bracket via EDHREC bracket pages.
  */
 import { BRACKET_META, clampBracket, fetchCheapEdhrecPool } from "./edhrec";
 import { parseDeckListAsync, toMoxfieldList, type DeckLine } from "./moxfield";
-import { formatUsd, priceDeck, type PricedCard } from "./pricing";
+import {
+  estimateAllInPurchase,
+  formatUsd,
+  priceDeck,
+  type PricedCard,
+} from "./pricing";
 import {
   collectionLookup,
   namedCard,
@@ -32,6 +38,9 @@ export type BudgetDeckResult = {
   lines: DeckLine[];
   originalTotal: number;
   newTotal: number;
+  /** Estimated cards + shipping for the cut list (best purchase plan). */
+  estimatedPurchaseTotal: number;
+  estimatedShipping: number;
   maxPrice: number;
   bracket: number;
   underBudget: boolean;
@@ -88,6 +97,11 @@ function lineTotal(priced: PricedCard): number {
 
 function deckTotal(priced: PricedCard[]): number {
   return priced.reduce((s, p) => s + lineTotal(p), 0);
+}
+
+/** All-in cost used for budget checks (Scryfall cards + modeled shipping). */
+function purchaseTotal(priced: PricedCard[]): number {
+  return estimateAllInPurchase(priced).grandTotal;
 }
 
 async function resolveCommanderCard(
@@ -166,8 +180,9 @@ type PoolPick = {
 
 /**
  * Greedily replace expensive deck cards with cheaper EDHREC recommendations
- * until the Scryfall USD total is at or under `maxPrice`.
- * Prefers target-bracket cards for replacements and cuts off-bracket staples first.
+ * until the estimated all-in purchase cost (cards + modeled shipping) is at or
+ * under `maxPrice`. Prefers target-bracket cards for replacements and cuts
+ * off-bracket staples first.
  */
 export async function budgetizeDeck(options: BudgetDeckOptions): Promise<BudgetDeckResult> {
   const maxPrice = Math.max(0, Number(options.maxPrice) || 0);
@@ -260,7 +275,7 @@ export async function budgetizeDeck(options: BudgetDeckOptions): Promise<BudgetD
 
   report(4, 5, `Swapping toward Bracket ${bracket}…`);
 
-  while (deckTotal(priced) > maxPrice && swapGuard < maxSwaps) {
+  while (purchaseTotal(priced) > maxPrice && swapGuard < maxSwaps) {
     swapGuard += 1;
 
     const candidates = priced
@@ -375,15 +390,23 @@ export async function budgetizeDeck(options: BudgetDeckOptions): Promise<BudgetD
   report(5, 5, "Final pricing…");
   priced = await priceDeck(working, true);
   const newTotal = deckTotal(priced);
-  const underBudget = newTotal <= maxPrice;
+  const purchase = estimateAllInPurchase(priced);
+  const underBudget = purchase.grandTotal <= maxPrice;
 
   if (!underBudget) {
     notes.push(
-      `Best effort: ${formatUsd(newTotal)} still over the ${formatUsd(maxPrice)} target after ${swaps.length} swap${swaps.length === 1 ? "" : "s"}.`,
+      `Best effort: estimated purchase ${formatUsd(purchase.grandTotal)} (cards ${formatUsd(newTotal)} + ~${formatUsd(purchase.shipping)} ship) still over the ${formatUsd(maxPrice)} target after ${swaps.length} swap${swaps.length === 1 ? "" : "s"}.`,
     );
-  } else if (!swaps.length && originalTotal <= maxPrice) {
-    notes.push("Deck was already under budget - no changes made.");
+  } else if (!swaps.length && purchase.grandTotal <= maxPrice) {
+    notes.push("Deck was already under budget including estimated shipping - no changes made.");
+  } else {
+    notes.push(
+      `Estimated purchase ${formatUsd(purchase.grandTotal)} via ${purchase.vendorName} (cards ${formatUsd(newTotal)} + ~${formatUsd(purchase.shipping)} ship).`,
+    );
   }
+  notes.push(
+    "Budget target includes modeled shipping (TCGPlayer mass-entry ≈ many sellers; single stores use flat/free-ship thresholds).",
+  );
 
   const inBracketCount = working.filter(
     (l) =>
@@ -410,6 +433,8 @@ export async function budgetizeDeck(options: BudgetDeckOptions): Promise<BudgetD
     lines: outLines,
     originalTotal,
     newTotal,
+    estimatedPurchaseTotal: purchase.grandTotal,
+    estimatedShipping: purchase.shipping,
     maxPrice,
     bracket,
     underBudget,
