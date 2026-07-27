@@ -242,6 +242,58 @@ export function cardImpactScore(card: ScryfallCard, quantity = 1): number {
   return impact;
 }
 
+export type PowerEstimateInput = {
+  card: ScryfallCard;
+  quantity: number;
+  isCommander?: boolean;
+};
+
+/**
+ * Fast EDHPL-style power estimate from already-resolved Scryfall cards (no network).
+ * Used by pool-to-decks when comparing alternate builds.
+ */
+export function estimatePowerFromCards(entries: PowerEstimateInput[]): {
+  powerLevel: number;
+  score: number;
+  impact: number;
+} {
+  const impacts: CardImpact[] = entries.map((e) => {
+    const land = isLand(e.card) || isMdfcLand(e.card);
+    return {
+      name: displayShort(e.card.name),
+      quantity: e.quantity,
+      impact: cardImpactScore(e.card, e.quantity),
+      cmc: land ? 0 : (e.card.cmc ?? 0),
+      isLand: land,
+      isCommander: !!e.isCommander,
+    };
+  });
+
+  const totalImpact = impacts.reduce((s, c) => s + c.impact, 0);
+  const nonlands = impacts.filter((c) => !c.isLand);
+  const cmcCards = nonlands.filter((c) => !c.isCommander);
+  const cmcQty = cmcCards.reduce((s, c) => s + c.quantity, 0) || 1;
+  const avgCmc = cmcCards.reduce((s, c) => s + c.cmc * c.quantity, 0) / cmcQty;
+  const tippingPoint = computeTippingPoint(impacts);
+
+  const g = (avgCmc + tippingPoint) / 2;
+  const ce = clamp(
+    (FACTORS.cmcCeiling - g) / (FACTORS.cmcCeiling - FACTORS.cmcFloor),
+    0,
+    1.5,
+  );
+  const [effLo, effHi] = FACTORS.efficiencyLimits;
+  const efficiencyMultiplier = effLo + (effHi - effLo) * ce;
+  const score = totalImpact * efficiencyMultiplier;
+  const powerLevel = Math.round(curveLookup(score, FACTORS.powerCurve) * 100) / 100;
+
+  return {
+    powerLevel: clamp(powerLevel, 0, 10),
+    score: Math.round(clamp(score, 0, 1000)),
+    impact: Math.round(totalImpact * 100) / 100,
+  };
+}
+
 function isTutor(card: ScryfallCard): boolean {
   const t = oracleText(card);
   if (/search your library for (a|an|up to|any)/i.test(t) && /then shuffle/i.test(t)) {

@@ -97,8 +97,8 @@ export function PoolDecksPage() {
         <h1>Pool to decks</h1>
         <p>
           Paste a shared card pool, pick how many Commander decks to build, and split by color,
-          balance, or greedy - each seat drafts using EDHREC synergy plus local theme and package
-          fit with its commander.
+          balance, or greedy. Each seat tries several theme and combo builds, estimates power, and
+          keeps the strongest result.
         </p>
       </header>
 
@@ -108,27 +108,28 @@ export function PoolDecksPage() {
           <p>
             Looks up your pool on Scryfall, drops cards that aren’t legal in Commander, then picks
             commanders by EDHREC popularity blended with how well the remaining pool supports their
-            themes. Each seat loads that commander’s EDHREC synergy (Optimized → Upgraded → overall)
-            plus average-deck staples, and drafts by a blended score: EDHREC hits, shared themes
-            (tokens, aristocrats, tribal, etc.), and known combo pairs — so random pools can still
-            cohere when EDHREC coverage is thin.
+            themes. Each seat loads EDHREC synergy, then tries up to several builds (balanced fit,
+            known combo pairs present in the pool, dense theme packages). Each candidate is scored
+            with an EDH Power Level–style estimate; the highest-power build is kept before the next
+            seat drafts from leftovers.
           </p>
           <ul>
             <li>
-              <strong>Color identity.</strong> Cards that only fit one seat go there first; shared
-              cards prefer the seat with the best blended fit score.
+              <strong>Color identity.</strong> Most color-constrained seats build first so exclusive
+              CI cards land in the only deck that can use them.
             </li>
             <li>
-              <strong>Balanced.</strong> Snake-drafts high-fit cards across seats so value is shared
-              more evenly.
+              <strong>Balanced.</strong> Seats with weaker pool support build earlier so contested
+              staples are shared more evenly.
             </li>
             <li>
-              <strong>Greedy.</strong> Builds the strongest seat first (best supported commander +
-              top-fit cards), then the next from leftovers.
+              <strong>Greedy.</strong> Strongest supported commander builds first and takes the best
+              package, then the next seat uses leftovers.
             </li>
             <li>
-              <strong>Lands.</strong> Targets about 37 lands (band 35–39), padding with basics when
-              the pool is short.
+              <strong>Lands.</strong> Targets about 37 lands (band 35–39). Nonbasics are capped by
+              color count so manabases stay basic-heavy; remaining slots use pool basics when
+              available, otherwise generated basics.
             </li>
           </ul>
           <p className="muted" style={{ marginBottom: 0 }}>
@@ -220,7 +221,7 @@ export function PoolDecksPage() {
             <div className="progress-fill" style={{ width: `${progressPct}%` }} />
           </div>
           <p className="progress-block__note muted">
-            Scryfall lookup plus EDHREC and theme fit per commander - large pools take a bit.
+            Scryfall + EDHREC, then several power-tested builds per seat - large pools take a bit.
           </p>
         </div>
       )}

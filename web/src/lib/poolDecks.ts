@@ -2,8 +2,10 @@
  * Build X Commander decks from a shared card pool.
  * Strategies: color identity, balanced snake-draft, or greedy best-first.
  * Scores cards via EDHREC synergy blended with local theme/package fit.
+ * Each seat tries several theme/combo builds and keeps the highest power estimate.
  */
 import {
+  KNOWN_COMBO_PAIRS,
   comboPairHits,
   mergeThemes,
   poolThemeSupport,
@@ -16,7 +18,7 @@ import {
   fetchCommanderSynergyScores,
 } from "./edhrec";
 import { parseDeckListAsync, toMoxfieldList, type DeckLine } from "./moxfield";
-import { analyzeDeckPower, type PowerReport } from "./powerLevel";
+import { analyzeDeckPower, estimatePowerFromCards, type PowerReport } from "./powerLevel";
 import { collectionLookup, type ScryfallCard } from "./scryfall";
 
 export type PoolStrategy = "color" | "balanced" | "greedy";
@@ -53,6 +55,22 @@ const MIN_LANDS = 35;
 const MAX_LANDS = 39;
 const MIN_DECKS = 1;
 
+/**
+ * Cap nonbasic lands so manabases stay basic-heavy.
+ * Utility duals/fetches are good; filling all ~37 slots with pool nonbasics is not.
+ */
+function maxNonbasicLandsFor(ci: string[]): number {
+  const colors = WUBRG.filter((c) => ci.includes(c)).length;
+  if (colors <= 1) return 12;
+  if (colors === 2) return 15;
+  if (colors === 3) return 18;
+  return 20;
+}
+
+function minBasicLandsFor(ci: string[]): number {
+  return Math.max(12, TARGET_LANDS - maxNonbasicLandsFor(ci));
+}
+
 function clampDeckCount(n: number): number {
   if (!Number.isFinite(n)) return 2;
   return Math.max(MIN_DECKS, Math.round(n));
@@ -87,6 +105,13 @@ type Seat = {
 /** Blended score bands for fill phases (not EDHREC-raw floors). */
 const HIGH_FIT_SCORE = 200;
 const SOLID_FIT_SCORE = 35;
+/** Max alternate builds to power-test per seat (incl. default). */
+const MAX_BUILD_FOCUSES = 8;
+
+type BuildFocus =
+  | { kind: "default"; label: string }
+  | { kind: "theme"; theme: string; label: string }
+  | { kind: "combo"; a: string; b: string; label: string };
 
 function normalizeName(name: string): string {
   return name.toLowerCase().split(" // ")[0].trim();
@@ -176,14 +201,17 @@ function baseScoreCard(card: ScryfallCard): number {
   return s;
 }
 
-function seatCardScore(seat: Seat, item: PoolItem): number {
+function seatCardScore(seat: Seat, item: PoolItem, focus?: BuildFocus): number {
   const syn = seat.synergy.get(item.key) ?? 0;
   // EDHREC when present; no cliff penalty when absent.
   const edh = syn > 0 ? syn * 25 : 0;
   const themeFit = themeOverlap(item.themes, seat.themes) * 18;
   const combo = comboPairHits(item.key, seat.main.keys()) * 120;
   const tribal = tribalOverlap(item.themes, seat.themes) * 12;
-  return edh + themeFit + combo + tribal + item.baseScore;
+  let s = edh + themeFit + combo + tribal + item.baseScore;
+  if (focus?.kind === "theme" && item.themes.has(focus.theme)) s += 90;
+  if (focus?.kind === "combo" && (item.key === focus.a || item.key === focus.b)) s += 220;
+  return s;
 }
 
 function basicLandsFor(colorId: string[], count: number): DeckLine[] {
@@ -224,6 +252,22 @@ function seatLandCount(seat: Seat): number {
   return n;
 }
 
+function seatNonbasicLandCount(seat: Seat): number {
+  let n = 0;
+  for (const e of seat.main.values()) {
+    if (e.isLand && !isBasicLandCard(e.card)) n += e.quantity;
+  }
+  return n;
+}
+
+function seatBasicLandCount(seat: Seat): number {
+  let n = 0;
+  for (const e of seat.main.values()) {
+    if (e.isLand && isBasicLandCard(e.card)) n += e.quantity;
+  }
+  return n;
+}
+
 function canPlayInSeat(seat: Seat, item: PoolItem): boolean {
   if (item.quantity <= 0) return false;
   if (!isLegalInCommander(item.card)) return false;
@@ -231,14 +275,14 @@ function canPlayInSeat(seat: Seat, item: PoolItem): boolean {
   return true;
 }
 
-function addToSeat(seat: Seat, item: PoolItem, qty = 1): boolean {
+function addToSeat(seat: Seat, item: PoolItem, qty = 1, focus?: BuildFocus): boolean {
   if (!canPlayInSeat(seat, item)) return false;
   const room = MAIN_SIZE - seatMainCount(seat);
   if (room <= 0) return false;
   const take = Math.min(qty, room, item.quantity);
   if (take <= 0) return false;
 
-  const score = seatCardScore(seat, item);
+  const score = seatCardScore(seat, item, focus);
   const existing = seat.main.get(item.key);
   if (existing) {
     existing.quantity += take;
@@ -276,12 +320,19 @@ function colorsCovered(cis: string[][]): Set<string> {
 function fittingForSeat(
   pool: PoolItem[],
   seat: Seat,
-  opts?: { landsOnly?: boolean; nonlandsOnly?: boolean },
+  opts?: {
+    landsOnly?: boolean;
+    nonlandsOnly?: boolean;
+    nonbasicLandsOnly?: boolean;
+    basicLandsOnly?: boolean;
+  },
 ): PoolItem[] {
   return availableItems(pool).filter((p) => {
     if (!canPlayInSeat(seat, p)) return false;
     if (opts?.landsOnly && !p.isLand) return false;
     if (opts?.nonlandsOnly && p.isLand) return false;
+    if (opts?.nonbasicLandsOnly && (!p.isLand || p.isBasic)) return false;
+    if (opts?.basicLandsOnly && !p.isBasic) return false;
     return true;
   });
 }
@@ -386,22 +437,170 @@ function pickGreedyCommander(
 }
 
 /**
- * Fill a seat preferring high blended fit (EDHREC + themes + packages), with a land band.
+ * Add one basic matching the seat's colors — prefer depleting pool basics, else generate.
  */
-function fillSeatSynergy(seat: Seat, pool: PoolItem[]): void {
+function addOneBasicLand(seat: Seat, pool: PoolItem[]): boolean {
+  if (seatMainCount(seat) >= MAIN_SIZE) return false;
+
+  const wanted = new Set(
+    basicLandsFor(seat.ci, seat.ci.length || 1).map((l) => normalizeName(l.name)),
+  );
+  // Prefer the basic color the seat currently has fewest of.
+  const basicCounts = new Map<string, number>();
+  for (const name of wanted) basicCounts.set(name, 0);
+  for (const [key, e] of seat.main) {
+    if (e.isLand && isBasicLandCard(e.card) && wanted.has(key)) {
+      basicCounts.set(key, (basicCounts.get(key) ?? 0) + e.quantity);
+    }
+  }
+  const preferOrder = [...wanted].sort(
+    (a, b) => (basicCounts.get(a) ?? 0) - (basicCounts.get(b) ?? 0),
+  );
+
+  for (const key of preferOrder) {
+    const item = pool.find((p) => p.key === key && p.isBasic && p.quantity > 0);
+    if (item && addToSeat(seat, item, 1)) return true;
+  }
+
+  // Any other basic in pool that fits CI (e.g. extra Forests in a WG deck)
+  const poolBasic = fittingForSeat(pool, seat, { basicLandsOnly: true })[0];
+  if (poolBasic && addToSeat(seat, poolBasic, 1)) return true;
+
+  const gen = basicLandsFor(seat.ci, 1)[0]?.name ?? "Wastes";
+  addBasicToSeat(seat, gen, 1);
+  return true;
+}
+
+/** Return one copy of a mainboard card to the shared pool (if it exists there). */
+function returnCopyToPool(pool: PoolItem[], key: string, card: ScryfallCard, isLand: boolean): void {
+  const existing = pool.find((p) => p.key === key);
+  if (existing) {
+    existing.quantity += 1;
+    return;
+  }
+  pool.push({
+    key,
+    name: displayName(card),
+    quantity: 1,
+    card,
+    isBasic: isBasicLandCard(card),
+    isLand,
+    isCommanderLegal: isValidCommander(card),
+    baseScore: baseScoreCard(card),
+    themes: tagCardThemes(card),
+  });
+}
+
+/**
+ * Cap nonbasics and ensure a basic-land floor. Excess nonbasics go back to the pool.
+ */
+function enforceBasicManabase(seat: Seat, pool: PoolItem[]): void {
+  const maxNb = maxNonbasicLandsFor(seat.ci);
+  const minBasics = minBasicLandsFor(seat.ci);
+
+  // Cut lowest-scored nonbasic lands down to the cap.
+  while (seatNonbasicLandCount(seat) > maxNb) {
+    let worstKey: string | null = null;
+    let worstScore = Infinity;
+    for (const [key, e] of seat.main) {
+      if (!e.isLand || isBasicLandCard(e.card)) continue;
+      if (e.score < worstScore) {
+        worstScore = e.score;
+        worstKey = key;
+      }
+    }
+    if (!worstKey) break;
+    const e = seat.main.get(worstKey)!;
+    e.quantity -= 1;
+    returnCopyToPool(pool, worstKey, e.card, true);
+    if (e.quantity <= 0) seat.main.delete(worstKey);
+    if (seatLandCount(seat) < TARGET_LANDS) addOneBasicLand(seat, pool);
+  }
+
+  // Top up basics toward the floor (and land target) without exceeding MAX_LANDS.
+  while (
+    seatBasicLandCount(seat) < minBasics &&
+    seatLandCount(seat) < MAX_LANDS &&
+    seatMainCount(seat) < MAIN_SIZE
+  ) {
+    if (!addOneBasicLand(seat, pool)) break;
+  }
+
+  // If still short on basics but full on cards, swap worst nonland for a basic.
+  while (seatBasicLandCount(seat) < minBasics && seatMainCount(seat) >= MAIN_SIZE) {
+    let worstKey: string | null = null;
+    let worstScore = Infinity;
+    for (const [key, e] of seat.main) {
+      if (e.isLand) continue;
+      if (e.score < worstScore) {
+        worstScore = e.score;
+        worstKey = key;
+      }
+    }
+    if (!worstKey) break;
+    const e = seat.main.get(worstKey)!;
+    e.quantity -= 1;
+    returnCopyToPool(pool, worstKey, e.card, false);
+    if (e.quantity <= 0) seat.main.delete(worstKey);
+    addOneBasicLand(seat, pool);
+  }
+
+  // If still short on basics with too many nonbasic lands, swap nonbasics → basics.
+  while (seatBasicLandCount(seat) < minBasics && seatNonbasicLandCount(seat) > 0) {
+    let worstKey: string | null = null;
+    let worstScore = Infinity;
+    for (const [key, e] of seat.main) {
+      if (!e.isLand || isBasicLandCard(e.card)) continue;
+      if (e.score < worstScore) {
+        worstScore = e.score;
+        worstKey = key;
+      }
+    }
+    if (!worstKey) break;
+    const e = seat.main.get(worstKey)!;
+    e.quantity -= 1;
+    returnCopyToPool(pool, worstKey, e.card, true);
+    if (e.quantity <= 0) seat.main.delete(worstKey);
+    addOneBasicLand(seat, pool);
+  }
+}
+
+/**
+ * Fill a seat preferring high blended fit (EDHREC + themes + packages), with a land band.
+ * Optional `focus` biases toward a theme or combo package for power search.
+ * Nonbasic lands are capped; remaining land slots prefer basics.
+ */
+function fillSeatSynergy(seat: Seat, pool: PoolItem[], focus?: BuildFocus): void {
   const nonlandTarget = MAIN_SIZE - TARGET_LANDS;
+  const maxNb = maxNonbasicLandsFor(seat.ci);
 
   const pickBest = (
-    opts: { landsOnly?: boolean; nonlandsOnly?: boolean; minScore: number },
+    opts: {
+      landsOnly?: boolean;
+      nonlandsOnly?: boolean;
+      nonbasicLandsOnly?: boolean;
+      basicLandsOnly?: boolean;
+      minScore: number;
+    },
   ): boolean => {
     let candidates = fittingForSeat(pool, seat, {
       landsOnly: opts.landsOnly,
       nonlandsOnly: opts.nonlandsOnly,
-    }).filter((p) => seatCardScore(seat, p) >= opts.minScore);
+      nonbasicLandsOnly: opts.nonbasicLandsOnly,
+      basicLandsOnly: opts.basicLandsOnly,
+    }).filter((p) => seatCardScore(seat, p, focus) >= opts.minScore);
     if (!candidates.length) return false;
-    candidates.sort((a, b) => seatCardScore(seat, b) - seatCardScore(seat, a));
-    return addToSeat(seat, candidates[0], 1);
+    candidates.sort((a, b) => seatCardScore(seat, b, focus) - seatCardScore(seat, a, focus));
+    return addToSeat(seat, candidates[0], 1, focus);
   };
+
+  // Seed combo halves first so packages stay together.
+  if (focus?.kind === "combo") {
+    for (const key of [focus.a, focus.b]) {
+      const item = pool.find((p) => p.key === key && p.quantity > 0);
+      if (item && canPlayInSeat(seat, item)) addToSeat(seat, item, 1, focus);
+    }
+  }
 
   // 1) High-fit nonlands (strong EDHREC and/or theme packages)
   while (seatMainCount(seat) - seatLandCount(seat) < nonlandTarget && seatMainCount(seat) < MAIN_SIZE) {
@@ -411,20 +610,32 @@ function fillSeatSynergy(seat: Seat, pool: PoolItem[]): void {
   while (seatMainCount(seat) - seatLandCount(seat) < nonlandTarget && seatMainCount(seat) < MAIN_SIZE) {
     if (!pickBest({ nonlandsOnly: true, minScore: SOLID_FIT_SCORE })) break;
   }
-  // 3) High-fit lands
-  while (seatLandCount(seat) < TARGET_LANDS && seatMainCount(seat) < MAIN_SIZE) {
-    if (!pickBest({ landsOnly: true, minScore: HIGH_FIT_SCORE })) break;
+  // 3) High-fit nonbasic lands (capped)
+  while (
+    seatLandCount(seat) < TARGET_LANDS &&
+    seatNonbasicLandCount(seat) < maxNb &&
+    seatMainCount(seat) < MAIN_SIZE
+  ) {
+    if (!pickBest({ nonbasicLandsOnly: true, minScore: HIGH_FIT_SCORE })) break;
   }
-  // 4) Solid-fit lands
-  while (seatLandCount(seat) < TARGET_LANDS && seatMainCount(seat) < MAIN_SIZE) {
-    if (!pickBest({ landsOnly: true, minScore: SOLID_FIT_SCORE })) break;
+  // 4) Solid-fit nonbasic lands (capped)
+  while (
+    seatLandCount(seat) < TARGET_LANDS &&
+    seatNonbasicLandCount(seat) < maxNb &&
+    seatMainCount(seat) < MAIN_SIZE
+  ) {
+    if (!pickBest({ nonbasicLandsOnly: true, minScore: SOLID_FIT_SCORE })) break;
   }
-  // 5) Fill remaining — prefer solid fit, then any legal card
+  // 5) Fill remaining land slots with basics (pool first, then generated)
+  while (seatLandCount(seat) < TARGET_LANDS && seatMainCount(seat) < MAIN_SIZE) {
+    if (!addOneBasicLand(seat, pool)) break;
+  }
+  // 6) Fill remaining — prefer solid fit, then any legal card; lands prefer basics
   while (seatMainCount(seat) < MAIN_SIZE) {
     const lands = seatLandCount(seat);
     const nonlands = seatMainCount(seat) - lands;
     if (lands < MIN_LANDS) {
-      if (pickBest({ landsOnly: true, minScore: SOLID_FIT_SCORE })) continue;
+      if (addOneBasicLand(seat, pool)) continue;
       if (pickBest({ landsOnly: true, minScore: -Infinity })) continue;
     } else if (lands >= MAX_LANDS || nonlands < nonlandTarget) {
       if (pickBest({ nonlandsOnly: true, minScore: SOLID_FIT_SCORE })) continue;
@@ -434,91 +645,187 @@ function fillSeatSynergy(seat: Seat, pool: PoolItem[]): void {
     if (pickBest({ minScore: -Infinity })) continue;
     break;
   }
+
+  enforceBasicManabase(seat, pool);
 }
 
-function assignColorStrategy(seats: Seat[], pool: PoolItem[]): void {
-  // Exclusive CI fits first — still score by the only seat's synergy
-  for (const item of availableItems(pool)) {
-    while (item.quantity > 0) {
-      const fitSeats = seats.filter((s) => canPlayInSeat(s, item) && seatMainCount(s) < MAIN_SIZE);
-      if (fitSeats.length !== 1) break;
-      const seat = fitSeats[0];
-      const lands = seatLandCount(seat);
-      const nonlands = seatMainCount(seat) - lands;
-      if (item.isLand && lands >= MAX_LANDS) break;
-      if (!item.isLand && nonlands >= MAIN_SIZE - MIN_LANDS && lands < MIN_LANDS) break;
-      if (!addToSeat(seat, item, 1)) break;
-    }
+function snapshotPoolQty(pool: PoolItem[]): Map<string, number> {
+  return new Map(pool.map((p) => [p.key, p.quantity]));
+}
+
+function restorePoolQty(pool: PoolItem[], snap: Map<string, number>): void {
+  for (const p of pool) p.quantity = snap.get(p.key) ?? 0;
+}
+
+function resetSeatMain(seat: Seat): void {
+  seat.main = new Map();
+  seat.themes = new Set(tagCardThemes(seat.commander));
+}
+
+function cloneSeatMain(seat: Seat): Seat["main"] {
+  const m = new Map<string, { quantity: number; card: ScryfallCard; isLand: boolean; score: number }>();
+  for (const [k, e] of seat.main) {
+    m.set(k, { quantity: e.quantity, card: e.card, isLand: e.isLand, score: e.score });
   }
+  return m;
+}
 
-  let progress = true;
-  while (progress) {
-    progress = false;
-    const items = availableItems(pool).sort((a, b) => {
-      const bestA = Math.max(...seats.map((s) => (canPlayInSeat(s, a) ? seatCardScore(s, a) : -1)));
-      const bestB = Math.max(...seats.map((s) => (canPlayInSeat(s, b) ? seatCardScore(s, b) : -1)));
-      return bestB - bestA;
-    });
+function estimateSeatPower(seat: Seat): number {
+  const entries = [
+    { card: seat.commander, quantity: 1, isCommander: true },
+    ...[...seat.main.values()].map((e) => ({
+      card: e.card,
+      quantity: e.quantity,
+      isCommander: false,
+    })),
+  ];
+  return estimatePowerFromCards(entries).powerLevel;
+}
 
-    for (const item of items) {
-      const fitSeats = seats.filter((s) => canPlayInSeat(s, item) && seatMainCount(s) < MAIN_SIZE);
-      if (!fitSeats.length) continue;
+function titleCaseFocus(key: string): string {
+  return key.replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
-      fitSeats.sort((a, b) => {
-        const scoreDiff = seatCardScore(b, item) - seatCardScore(a, item);
-        if (Math.abs(scoreDiff) > 0.01) return scoreDiff;
-        if (item.isLand) return seatLandCount(a) - seatLandCount(b);
-        return seatMainCount(a) - seatLandCount(a) - (seatMainCount(b) - seatLandCount(b));
+/** Candidate theme/combo pivots available in the CI-fitting remainder of the pool. */
+function listBuildFocuses(seat: Seat, pool: PoolItem[]): BuildFocus[] {
+  const focuses: BuildFocus[] = [{ kind: "default", label: "balanced fit" }];
+  const fitting = fittingForSeat(pool, seat).filter((p) => !p.isBasic);
+  const keys = new Set(fitting.map((p) => p.key));
+
+  for (const [a, b] of KNOWN_COMBO_PAIRS) {
+    if (keys.has(a) && keys.has(b)) {
+      focuses.push({
+        kind: "combo",
+        a,
+        b,
+        label: `${titleCaseFocus(a)} + ${titleCaseFocus(b)}`,
       });
-
-      const seat = fitSeats[0];
-      const lands = seatLandCount(seat);
-      if (item.isLand && lands >= MAX_LANDS) continue;
-      if (!item.isLand && lands < MIN_LANDS && seatMainCount(seat) - lands >= MAIN_SIZE - MIN_LANDS) {
-        continue;
-      }
-      if (addToSeat(seat, item, 1)) progress = true;
     }
   }
 
-  for (const seat of seats) fillSeatSynergy(seat, pool);
+  const themeCounts = new Map<string, number>();
+  for (const p of fitting) {
+    for (const t of p.themes) {
+      if (t === "ramp" || t === "draw" || t === "removal" || t === "control") continue;
+      themeCounts.set(t, (themeCounts.get(t) ?? 0) + 1);
+    }
+  }
+  const rankedThemes = [...themeCounts.entries()]
+    .filter(([, n]) => n >= 3)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+  for (const [theme, n] of rankedThemes) {
+    focuses.push({
+      kind: "theme",
+      theme,
+      label: `${theme.replace(/^tribal:/, "")} package (${n} cards)`,
+    });
+  }
+
+  // Dedupe labels, cap size (keep default first)
+  const seen = new Set<string>();
+  const out: BuildFocus[] = [];
+  for (const f of focuses) {
+    if (seen.has(f.label)) continue;
+    seen.add(f.label);
+    out.push(f);
+    if (out.length >= MAX_BUILD_FOCUSES) break;
+  }
+  return out;
 }
 
-function assignBalancedStrategy(seats: Seat[], pool: PoolItem[]): void {
-  const order: number[] = [];
-  let forward = true;
-  while (order.length < seats.length * MAIN_SIZE) {
-    if (forward) {
-      for (let i = 0; i < seats.length; i++) order.push(i);
-    } else {
-      for (let i = seats.length - 1; i >= 0; i--) order.push(i);
+/**
+ * Try several theme/combo builds for this seat; keep the highest estimated power.
+ * Consumes cards from `pool` for the winning build only.
+ */
+function optimizeSeatByPower(
+  seat: Seat,
+  pool: PoolItem[],
+  onProgress?: (label: string) => void,
+): void {
+  const focuses = listBuildFocuses(seat, pool);
+  const snap = snapshotPoolQty(pool);
+  let bestPower = -Infinity;
+  let bestMain: Seat["main"] | null = null;
+  let bestThemes: Set<string> | null = null;
+  let bestQty: Map<string, number> | null = null;
+  let bestLabel = focuses[0]?.label ?? "balanced fit";
+
+  const cmdName = displayName(seat.commander);
+  for (let i = 0; i < focuses.length; i++) {
+    const focus = focuses[i];
+    onProgress?.(
+      `${cmdName}: trying build ${i + 1}/${focuses.length} (${focus.label})…`,
+    );
+    restorePoolQty(pool, snap);
+    resetSeatMain(seat);
+    fillSeatSynergy(seat, pool, focus);
+    const power = estimateSeatPower(seat);
+    if (power > bestPower) {
+      bestPower = power;
+      bestMain = cloneSeatMain(seat);
+      bestThemes = new Set(seat.themes);
+      bestQty = snapshotPoolQty(pool);
+      bestLabel = focus.label;
     }
-    forward = !forward;
   }
 
-  for (const seatIdx of order) {
-    const seat = seats[seatIdx];
-    if (seatMainCount(seat) >= MAIN_SIZE) continue;
-
-    const lands = seatLandCount(seat);
-    const nonlands = seatMainCount(seat) - lands;
-    let candidates: PoolItem[];
-    if (lands < TARGET_LANDS && nonlands >= MAIN_SIZE - TARGET_LANDS) {
-      candidates = fittingForSeat(pool, seat, { landsOnly: true });
-      if (!candidates.length) candidates = fittingForSeat(pool, seat);
-    } else if (lands >= MAX_LANDS) {
-      candidates = fittingForSeat(pool, seat, { nonlandsOnly: true });
-      if (!candidates.length) candidates = fittingForSeat(pool, seat);
-    } else {
-      candidates = fittingForSeat(pool, seat, { nonlandsOnly: true });
-      if (!candidates.length) candidates = fittingForSeat(pool, seat);
-    }
-    if (!candidates.length) continue;
-    candidates.sort((a, b) => seatCardScore(seat, b) - seatCardScore(seat, a));
-    addToSeat(seat, candidates[0], 1);
+  if (bestMain && bestThemes && bestQty) {
+    seat.main = bestMain;
+    seat.themes = bestThemes;
+    restorePoolQty(pool, bestQty);
+    seat.notes.push(
+      `Tried ${focuses.length} builds; kept “${bestLabel}” (est. power ${bestPower.toFixed(2)}).`,
+    );
+  } else {
+    restorePoolQty(pool, snap);
+    resetSeatMain(seat);
+    fillSeatSynergy(seat, pool);
   }
+}
 
-  for (const seat of seats) fillSeatSynergy(seat, pool);
+function orderSeatsForBuild(seats: Seat[], pool: PoolItem[], strategy: PoolStrategy): Seat[] {
+  if (strategy === "greedy") return [...seats];
+  if (strategy === "color") {
+    // Most color-constrained seats draft first so exclusive CI cards land correctly.
+    return [...seats].sort((a, b) => {
+      const fa = fittingForSeat(pool, a).filter((p) => !p.isBasic).length;
+      const fb = fittingForSeat(pool, b).filter((p) => !p.isBasic).length;
+      return fa - fb;
+    });
+  }
+  // Balanced: seats with weaker pool support pick earlier so contested staples are shared.
+  return [...seats].sort((a, b) => {
+    const sa = commanderPoolSupport(
+      {
+        key: normalizeName(displayName(a.commander)),
+        name: displayName(a.commander),
+        quantity: 0,
+        card: a.commander,
+        isBasic: false,
+        isLand: false,
+        isCommanderLegal: true,
+        baseScore: 0,
+        themes: a.themes,
+      },
+      pool,
+    );
+    const sb = commanderPoolSupport(
+      {
+        key: normalizeName(displayName(b.commander)),
+        name: displayName(b.commander),
+        quantity: 0,
+        card: b.commander,
+        isBasic: false,
+        isLand: false,
+        isCommanderLegal: true,
+        baseScore: 0,
+        themes: b.themes,
+      },
+      pool,
+    );
+    return sa - sb;
+  });
 }
 
 function addBasicToSeat(seat: Seat, name: string, qty: number): void {
@@ -696,6 +1003,34 @@ function forceMainSize(seat: Seat): { trimmed: number; padded: number } {
     if (e.quantity <= 0) seat.main.delete(key);
   }
 
+  // Restore basic-land floor after size locks (no pool — generate basics).
+  const minBasics = minBasicLandsFor(seat.ci);
+  while (seatBasicLandCount(seat) < minBasics) {
+    let worstKey: string | null = null;
+    let worstScore = Infinity;
+    for (const [key, e] of seat.main) {
+      if (!e.isLand || isBasicLandCard(e.card)) continue;
+      if (e.score < worstScore) {
+        worstScore = e.score;
+        worstKey = key;
+      }
+    }
+    if (!worstKey) {
+      for (const [key, e] of seat.main) {
+        if (e.isLand) continue;
+        if (e.score < worstScore) {
+          worstScore = e.score;
+          worstKey = key;
+        }
+      }
+    }
+    if (!worstKey) break;
+    const e = seat.main.get(worstKey)!;
+    e.quantity -= 1;
+    if (e.quantity <= 0) seat.main.delete(worstKey);
+    addBasicToSeat(seat, basicLandsFor(seat.ci, 1)[0]?.name ?? "Wastes", 1);
+  }
+
   return { trimmed, padded };
 }
 
@@ -722,7 +1057,11 @@ function finalizeSeat(seat: Seat, index: number): PoolDeck {
   }
 
   const landCount = seatLandCount(seat);
-  notes.push(`${landCount} lands (target ${TARGET_LANDS}).`);
+  const basicCount = seatBasicLandCount(seat);
+  const nonbasicCount = seatNonbasicLandCount(seat);
+  notes.push(
+    `${landCount} lands (target ${TARGET_LANDS}: ${basicCount} basic / ${nonbasicCount} nonbasic).`,
+  );
 
   const mainLines: DeckLine[] = [...seat.main.entries()]
     .filter(([, e]) => e.quantity > 0)
@@ -876,7 +1215,7 @@ export async function generatePoolDecks(opts: PoolDecksOptions): Promise<PoolDec
   const usedCommanderKeys = new Set<string>();
 
   if (strategy === "greedy") {
-    onProgress?.({ done: 3, total: totalSteps, label: "Building decks (greedy + themes)…" });
+    onProgress?.({ done: 3, total: totalSteps, label: "Picking commanders (greedy)…" });
     for (let i = 0; i < deckCount; i++) {
       const cmd = pickGreedyCommander(ranked, usedCommanderKeys, pool);
       if (!cmd) throw new Error(`Could not pick commander for deck ${i + 1}.`);
@@ -887,16 +1226,14 @@ export async function generatePoolDecks(opts: PoolDecksOptions): Promise<PoolDec
       const synergy = await loadSeatSynergy(cmd.card, (label) =>
         onProgress?.({ done: 3, total: totalSteps, label }),
       );
-      const seat: Seat = {
+      seats.push({
         commander: cmd.card,
         ci: cmd.card.color_identity ?? [],
         main: new Map(),
         notes: [],
         synergy,
         themes: new Set(cmd.themes),
-      };
-      fillSeatSynergy(seat, pool);
-      seats.push(seat);
+      });
     }
   } else {
     const picked = pickDiverseCommanders(ranked, deckCount, pool);
@@ -919,18 +1256,24 @@ export async function generatePoolDecks(opts: PoolDecksOptions): Promise<PoolDec
         themes: new Set(cmd.themes),
       });
     }
+  }
 
-    onProgress?.({
-      done: 4,
-      total: totalSteps,
-      label:
-        strategy === "color"
-          ? "Assigning by color + theme fit…"
-          : "Snake-drafting by theme fit…",
-    });
+  const buildOrder = orderSeatsForBuild(seats, pool, strategy);
+  onProgress?.({
+    done: 4,
+    total: totalSteps,
+    label: "Trying theme/combo builds per seat…",
+  });
 
-    if (strategy === "color") assignColorStrategy(seats, pool);
-    else assignBalancedStrategy(seats, pool);
+  for (let i = 0; i < buildOrder.length; i++) {
+    const seat = buildOrder[i];
+    optimizeSeatByPower(seat, pool, (label) =>
+      onProgress?.({
+        done: 4,
+        total: totalSteps,
+        label: `Seat ${i + 1}/${buildOrder.length} · ${label}`,
+      }),
+    );
   }
 
   onProgress?.({ done: 5, total: totalSteps, label: "Balancing lands & finalizing…" });
