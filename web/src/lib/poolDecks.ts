@@ -1,8 +1,16 @@
 /**
  * Build X Commander decks from a shared card pool.
  * Strategies: color identity, balanced snake-draft, or greedy best-first.
- * Scores cards via EDHREC synergy with each seat's commander for higher power.
+ * Scores cards via EDHREC synergy blended with local theme/package fit.
  */
+import {
+  comboPairHits,
+  mergeThemes,
+  poolThemeSupport,
+  tagCardThemes,
+  themeOverlap,
+  tribalOverlap,
+} from "./cardThemes";
 import {
   fetchBracketCounts,
   fetchCommanderSynergyScores,
@@ -60,6 +68,8 @@ type PoolItem = {
   isCommanderLegal: boolean;
   /** Local heuristic only (fallback when EDHREC misses). */
   baseScore: number;
+  /** Precomputed oracle/type theme tags. */
+  themes: Set<string>;
 };
 
 type Seat = {
@@ -70,7 +80,13 @@ type Seat = {
   notes: string[];
   /** EDHREC synergy scores keyed by normalized card name. */
   synergy: Map<string, number>;
+  /** Running theme profile: commander themes + drafted cards. */
+  themes: Set<string>;
 };
+
+/** Blended score bands for fill phases (not EDHREC-raw floors). */
+const HIGH_FIT_SCORE = 200;
+const SOLID_FIT_SCORE = 35;
 
 function normalizeName(name: string): string {
   return name.toLowerCase().split(" // ")[0].trim();
@@ -162,9 +178,12 @@ function baseScoreCard(card: ScryfallCard): number {
 
 function seatCardScore(seat: Seat, item: PoolItem): number {
   const syn = seat.synergy.get(item.key) ?? 0;
-  // Strongly prefer anything EDHREC associates with this commander.
-  if (syn > 0) return syn * 25 + item.baseScore;
-  return item.baseScore - 250;
+  // EDHREC when present; no cliff penalty when absent.
+  const edh = syn > 0 ? syn * 25 : 0;
+  const themeFit = themeOverlap(item.themes, seat.themes) * 18;
+  const combo = comboPairHits(item.key, seat.main.keys()) * 120;
+  const tribal = tribalOverlap(item.themes, seat.themes) * 12;
+  return edh + themeFit + combo + tribal + item.baseScore;
 }
 
 function basicLandsFor(colorId: string[], count: number): DeckLine[] {
@@ -232,6 +251,7 @@ function addToSeat(seat: Seat, item: PoolItem, qty = 1): boolean {
       score,
     });
   }
+  mergeThemes(seat.themes, item.themes);
   item.quantity -= take;
   return true;
 }
@@ -297,8 +317,17 @@ async function rankCommandersByPower(candidates: PoolItem[]): Promise<PoolItem[]
   return ordered;
 }
 
-/** Prefer diverse color identities among power-ranked candidates. */
-function pickDiverseCommanders(ranked: PoolItem[], count: number): PoolItem[] {
+/** Theme + tribal density of CI-fitting pool cards for a commander candidate. */
+function commanderPoolSupport(cmd: PoolItem, pool: PoolItem[]): number {
+  const ci = cmd.card.color_identity ?? [];
+  const fitting = pool.filter(
+    (p) => p.key !== cmd.key && p.quantity > 0 && fitsColorIdentity(p.card, ci),
+  );
+  return poolThemeSupport(cmd.themes, fitting);
+}
+
+/** Prefer diverse color identities among power-ranked, pool-supported candidates. */
+function pickDiverseCommanders(ranked: PoolItem[], count: number, pool: PoolItem[]): PoolItem[] {
   const remaining = [...ranked];
   const picked: PoolItem[] = [];
   const usedKeys = new Set<string>();
@@ -317,7 +346,9 @@ function pickDiverseCommanders(ranked: PoolItem[], count: number): PoolItem[] {
       const newColors = ci.filter((x) => !covered.has(x)).length;
       const duplicateCi = usedCiKeys.has(key) ? -20 : 0;
       const rankBonus = Math.max(0, 30 - i);
-      const value = newColors * 14 + duplicateCi + rankBonus + c.baseScore * 0.05;
+      const support = commanderPoolSupport(c, pool);
+      const value =
+        newColors * 14 + duplicateCi + rankBonus + c.baseScore * 0.05 + support * 0.35;
       if (value > bestValue) {
         bestValue = value;
         bestIdx = i;
@@ -332,54 +363,75 @@ function pickDiverseCommanders(ranked: PoolItem[], count: number): PoolItem[] {
   return picked;
 }
 
+/** Next greedy commander: blend EDHREC rank order with pool theme support. */
+function pickGreedyCommander(
+  ranked: PoolItem[],
+  usedKeys: Set<string>,
+  pool: PoolItem[],
+): PoolItem | undefined {
+  let best: PoolItem | undefined;
+  let bestValue = -Infinity;
+  for (let i = 0; i < ranked.length; i++) {
+    const c = ranked[i];
+    if (c.quantity <= 0 || usedKeys.has(c.key)) continue;
+    const rankBonus = Math.max(0, 40 - i);
+    const support = commanderPoolSupport(c, pool);
+    const value = rankBonus + support * 0.4 + c.baseScore * 0.05;
+    if (value > bestValue) {
+      bestValue = value;
+      best = c;
+    }
+  }
+  return best;
+}
+
 /**
- * Fill a seat preferring EDHREC synergy, with a hard land target band.
- * Takes EDHREC-recommended cards first so as many slots as possible synergize.
+ * Fill a seat preferring high blended fit (EDHREC + themes + packages), with a land band.
  */
 function fillSeatSynergy(seat: Seat, pool: PoolItem[]): void {
   const nonlandTarget = MAIN_SIZE - TARGET_LANDS;
 
   const pickBest = (
-    opts: { landsOnly?: boolean; nonlandsOnly?: boolean; minSynergy: number },
+    opts: { landsOnly?: boolean; nonlandsOnly?: boolean; minScore: number },
   ): boolean => {
     let candidates = fittingForSeat(pool, seat, {
       landsOnly: opts.landsOnly,
       nonlandsOnly: opts.nonlandsOnly,
-    }).filter((p) => (seat.synergy.get(p.key) ?? 0) >= opts.minSynergy);
+    }).filter((p) => seatCardScore(seat, p) >= opts.minScore);
     if (!candidates.length) return false;
     candidates.sort((a, b) => seatCardScore(seat, b) - seatCardScore(seat, a));
     return addToSeat(seat, candidates[0], 1);
   };
 
-  // 1) High-synergy nonlands (average-deck / strong EDHREC hits)
+  // 1) High-fit nonlands (strong EDHREC and/or theme packages)
   while (seatMainCount(seat) - seatLandCount(seat) < nonlandTarget && seatMainCount(seat) < MAIN_SIZE) {
-    if (!pickBest({ nonlandsOnly: true, minSynergy: 40 })) break;
+    if (!pickBest({ nonlandsOnly: true, minScore: HIGH_FIT_SCORE })) break;
   }
-  // 2) Any positive-synergy nonlands
+  // 2) Solid theme/local-fit nonlands
   while (seatMainCount(seat) - seatLandCount(seat) < nonlandTarget && seatMainCount(seat) < MAIN_SIZE) {
-    if (!pickBest({ nonlandsOnly: true, minSynergy: 0.01 })) break;
+    if (!pickBest({ nonlandsOnly: true, minScore: SOLID_FIT_SCORE })) break;
   }
-  // 3) High-synergy lands
+  // 3) High-fit lands
   while (seatLandCount(seat) < TARGET_LANDS && seatMainCount(seat) < MAIN_SIZE) {
-    if (!pickBest({ landsOnly: true, minSynergy: 40 })) break;
+    if (!pickBest({ landsOnly: true, minScore: HIGH_FIT_SCORE })) break;
   }
-  // 4) Any positive-synergy lands
+  // 4) Solid-fit lands
   while (seatLandCount(seat) < TARGET_LANDS && seatMainCount(seat) < MAIN_SIZE) {
-    if (!pickBest({ landsOnly: true, minSynergy: 0.01 })) break;
+    if (!pickBest({ landsOnly: true, minScore: SOLID_FIT_SCORE })) break;
   }
-  // 5) Fill remaining slots - still prefer synergy when available
+  // 5) Fill remaining — prefer solid fit, then any legal card
   while (seatMainCount(seat) < MAIN_SIZE) {
     const lands = seatLandCount(seat);
     const nonlands = seatMainCount(seat) - lands;
     if (lands < MIN_LANDS) {
-      if (pickBest({ landsOnly: true, minSynergy: 0.01 })) continue;
-      if (pickBest({ landsOnly: true, minSynergy: 0 })) continue;
+      if (pickBest({ landsOnly: true, minScore: SOLID_FIT_SCORE })) continue;
+      if (pickBest({ landsOnly: true, minScore: -Infinity })) continue;
     } else if (lands >= MAX_LANDS || nonlands < nonlandTarget) {
-      if (pickBest({ nonlandsOnly: true, minSynergy: 0.01 })) continue;
-      if (pickBest({ nonlandsOnly: true, minSynergy: 0 })) continue;
+      if (pickBest({ nonlandsOnly: true, minScore: SOLID_FIT_SCORE })) continue;
+      if (pickBest({ nonlandsOnly: true, minScore: -Infinity })) continue;
     }
-    if (pickBest({ minSynergy: 0.01 })) continue;
-    if (pickBest({ minSynergy: 0 })) continue;
+    if (pickBest({ minScore: SOLID_FIT_SCORE })) continue;
+    if (pickBest({ minScore: -Infinity })) continue;
     break;
   }
 }
@@ -653,7 +705,11 @@ function finalizeSeat(seat: Seat, index: number): PoolDeck {
   if (seat.synergy.size > 0) {
     notes.push(`EDHREC synergy: ${synHits} pool cards matched recommendations.`);
   } else {
-    notes.push("No EDHREC data for this commander - used local power heuristics.");
+    notes.push("No EDHREC data for this commander - used local theme and power heuristics.");
+  }
+  const themeTags = [...seat.themes].filter((t) => !t.startsWith("tribal:")).slice(0, 6);
+  if (themeTags.length) {
+    notes.push(`Theme profile: ${themeTags.join(", ")}.`);
   }
 
   const { trimmed, padded } = forceMainSize(seat);
@@ -754,6 +810,7 @@ function buildPoolFromCards(
       isLand: isLandCard(card),
       isCommanderLegal: isValidCommander(card),
       baseScore: baseScoreCard(card),
+      themes: tagCardThemes(card),
     });
   }
 
@@ -802,7 +859,7 @@ export async function generatePoolDecks(opts: PoolDecksOptions): Promise<PoolDec
 
   const { pool, unresolved, illegalSkipped } = buildPoolFromCards(parsed, byName);
 
-  onProgress?.({ done: 2, total: totalSteps, label: "Ranking commanders (EDHREC)…" });
+  onProgress?.({ done: 2, total: totalSteps, label: "Ranking commanders (pool support)…" });
 
   const commanderCandidates = pool
     .filter((p) => p.isCommanderLegal && p.quantity > 0)
@@ -819,9 +876,9 @@ export async function generatePoolDecks(opts: PoolDecksOptions): Promise<PoolDec
   const usedCommanderKeys = new Set<string>();
 
   if (strategy === "greedy") {
-    onProgress?.({ done: 3, total: totalSteps, label: "Building decks (greedy + EDHREC)…" });
+    onProgress?.({ done: 3, total: totalSteps, label: "Building decks (greedy + themes)…" });
     for (let i = 0; i < deckCount; i++) {
-      const cmd = ranked.find((c) => c.quantity > 0 && !usedCommanderKeys.has(c.key));
+      const cmd = pickGreedyCommander(ranked, usedCommanderKeys, pool);
       if (!cmd) throw new Error(`Could not pick commander for deck ${i + 1}.`);
       usedCommanderKeys.add(cmd.key);
       if (!takeFromPool(pool, cmd.key, 1)) {
@@ -836,12 +893,13 @@ export async function generatePoolDecks(opts: PoolDecksOptions): Promise<PoolDec
         main: new Map(),
         notes: [],
         synergy,
+        themes: new Set(cmd.themes),
       };
       fillSeatSynergy(seat, pool);
       seats.push(seat);
     }
   } else {
-    const picked = pickDiverseCommanders(ranked, deckCount);
+    const picked = pickDiverseCommanders(ranked, deckCount, pool);
     onProgress?.({ done: 3, total: totalSteps, label: "Loading EDHREC synergy…" });
 
     for (const cmd of picked) {
@@ -858,13 +916,17 @@ export async function generatePoolDecks(opts: PoolDecksOptions): Promise<PoolDec
         main: new Map(),
         notes: [],
         synergy,
+        themes: new Set(cmd.themes),
       });
     }
 
     onProgress?.({
       done: 4,
       total: totalSteps,
-      label: strategy === "color" ? "Assigning by color + synergy…" : "Snake-drafting by synergy…",
+      label:
+        strategy === "color"
+          ? "Assigning by color + theme fit…"
+          : "Snake-drafting by theme fit…",
     });
 
     if (strategy === "color") assignColorStrategy(seats, pool);
@@ -914,7 +976,7 @@ export async function generatePoolDecks(opts: PoolDecksOptions): Promise<PoolDec
     }
     if (unusable.length > 0) {
       decks[0].notes.push(
-        `${unusable.length} legal nonbasic${unusable.length === 1 ? "" : "s"} left unused (wrong colors, full decks, or lower synergy).`,
+        `${unusable.length} legal nonbasic${unusable.length === 1 ? "" : "s"} left unused (wrong colors, full decks, or lower fit).`,
       );
     }
   }

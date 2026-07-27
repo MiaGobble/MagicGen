@@ -97,7 +97,8 @@ export function PoolDecksPage() {
         <h1>Pool to decks</h1>
         <p>
           Paste a shared card pool, pick how many Commander decks to build, and split by color,
-          balance, or greedy - each seat drafts using EDHREC synergy with its commander.
+          balance, or greedy - each seat drafts using EDHREC synergy plus local theme and package
+          fit with its commander.
         </p>
       </header>
 
@@ -106,22 +107,24 @@ export function PoolDecksPage() {
         <div className="methodology__body">
           <p>
             Looks up your pool on Scryfall, drops cards that aren’t legal in Commander, then picks
-            commanders ranked by EDHREC popularity. Each seat loads that commander’s EDHREC synergy
-            (Optimized → Upgraded → overall) plus average-deck staples, and drafts the highest-synergy
-            legal cards that fit color identity.
+            commanders by EDHREC popularity blended with how well the remaining pool supports their
+            themes. Each seat loads that commander’s EDHREC synergy (Optimized → Upgraded → overall)
+            plus average-deck staples, and drafts by a blended score: EDHREC hits, shared themes
+            (tokens, aristocrats, tribal, etc.), and known combo pairs — so random pools can still
+            cohere when EDHREC coverage is thin.
           </p>
           <ul>
             <li>
               <strong>Color identity.</strong> Cards that only fit one seat go there first; shared
-              cards prefer the seat with the best EDHREC synergy score.
+              cards prefer the seat with the best blended fit score.
             </li>
             <li>
-              <strong>Balanced.</strong> Snake-drafts high-synergy cards across seats so value is
-              shared more evenly.
+              <strong>Balanced.</strong> Snake-drafts high-fit cards across seats so value is shared
+              more evenly.
             </li>
             <li>
-              <strong>Greedy.</strong> Builds the strongest seat first (best commander + top synergy
-              cards), then the next from leftovers.
+              <strong>Greedy.</strong> Builds the strongest seat first (best supported commander +
+              top-fit cards), then the next from leftovers.
             </li>
             <li>
               <strong>Lands.</strong> Targets about 37 lands (band 35–39), padding with basics when
@@ -217,7 +220,7 @@ export function PoolDecksPage() {
             <div className="progress-fill" style={{ width: `${progressPct}%` }} />
           </div>
           <p className="progress-block__note muted">
-            Scryfall lookup plus EDHREC synergy per commander - large pools take a bit.
+            Scryfall lookup plus EDHREC and theme fit per commander - large pools take a bit.
           </p>
         </div>
       )}
