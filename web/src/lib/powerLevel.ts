@@ -1,8 +1,14 @@
 /**
  * Commander power level + bracket analysis.
- * Implements the published EDH Power Level curves from https://edhpowerlevel.com/
+ *
+ * Power level (1–10): EDH Power Level curves from https://edhpowerlevel.com/
  * (priceCurve, popCurve, powerCurve, efficiencyLimits, land/reserved factors).
+ *
+ * Bracket (1–5): WotC Commander bracket barometers only — Game Changers, assembled
+ * two-card combos, extra turns, mass land denial. Power score does NOT raise bracket
+ * (EDHPL / OCT 2025: tutors removed from bracket rules).
  */
+import { KNOWN_COMBO_PAIRS } from "./cardThemes";
 import type { DeckLine } from "./deckFormat";
 import { collectionLookup, type ScryfallCard } from "./scryfall";
 
@@ -26,6 +32,7 @@ export type BracketFlags = {
   tutors: string[];
   extraTurns: string[];
   massLandDenial: string[];
+  /** Assembled two-card packages found in the list (e.g. "A + B"). */
   comboPieces: string[];
 };
 
@@ -70,85 +77,82 @@ const FACTORS = {
   /** Popularity via (27000 − edhrec_rank). */
   popCurve: [0, 8500, 13600, 17100, 19800, 21900, 23700, 25300, 26200, 26700, 27000],
   priceCurve: [0, 0.5, 1.5, 3.5, 6, 10, 15, 25, 40, 65, 100],
-  /** Power-level gates used when flags are ambiguous. */
-  bracketCurve: [0, 4.7, 6.7, 7.7, 9.25, 10],
   cmcFloor: 1.75,
   cmcCeiling: 6,
   efficiencyLimits: [0.65, 1.1] as [number, number],
 };
 
-/** Official-ish Game Changers (Commander bracket panel). */
+/**
+ * Official Game Changers (Commander Format Panel, Oct 21 2025 update).
+ * @see https://magic.wizards.com/en/news/announcements/commander-brackets-beta-update-october-21-2025
+ */
 const GAME_CHANGERS = new Set(
   [
-    "Ancient Tomb",
+    "Drannith Magistrate",
+    "Humility",
+    "Serra's Sanctum",
+    "Smothering Tithe",
+    "Enlightened Tutor",
+    "Teferi's Protection",
+    "Consecrated Sphinx",
+    "Cyclonic Rift",
+    "Force of Will",
+    "Fierce Guardianship",
+    "Gifts Ungiven",
+    "Intuition",
+    "Mystical Tutor",
+    "Narset, Parter of Veils",
+    "Rhystic Study",
+    "Thassa's Oracle",
+    "Ad Nauseam",
     "Bolas's Citadel",
     "Braids, Cabal Minion",
-    "Chrome Mox",
-    "Coalition Victory",
-    "Consecrated Sphinx",
-    "Crop Rotation",
-    "Cyclonic Rift",
     "Demonic Tutor",
-    "Drannith Magistrate",
-    "Enlightened Tutor",
-    "Field of the Dead",
-    "Food Chain",
-    "Gaea's Cradle",
-    "Gamble",
-    "Gifts Ungiven",
-    "Grand Arbiter Augustin IV",
-    "Grim Monolith",
-    "Humility",
     "Imperial Seal",
-    "Intuition",
+    "Necropotence",
+    "Opposition Agent",
+    "Orcish Bowmasters",
+    "Tergrid, God of Fright",
+    "Vampiric Tutor",
+    "Gamble",
     "Jeska's Will",
-    "Lim-Dûl's Vault",
-    "Lim-Dul's Vault",
+    "Underworld Breach",
+    "Crop Rotation",
+    "Gaea's Cradle",
+    "Natural Order",
+    "Seedborn Muse",
+    "Survival of the Fittest",
+    "Worldly Tutor",
+    "Aura Shards",
+    "Coalition Victory",
+    "Grand Arbiter Augustin IV",
+    "Notion Thief",
+    "Ancient Tomb",
+    "Chrome Mox",
+    "Field of the Dead",
+    "Glacial Chasm",
+    "Grim Monolith",
     "Lion's Eye Diamond",
-    "Mana Crypt",
-    "Mana Drain",
     "Mana Vault",
     "Mishra's Workshop",
     "Mox Diamond",
-    "Mystical Tutor",
-    "Natural Order",
-    "Necropotence",
-    "Oath of Druids",
-    "Opposition Agent",
-    "Pact of Negation",
     "Panoptic Mirror",
-    "Rhystic Study",
-    "Saruman of Many Colors",
-    "Seedborn Muse",
-    "Smothering Tithe",
-    "Survival of the Fittest",
-    "Teferi's Puzzle Box",
-    "Thassa's Oracle",
     "The One Ring",
     "The Tabernacle at Pendrell Vale",
-    "Urza, Lord High Artificer",
-    "Vampiric Tutor",
-    "Worldly Tutor",
-    "Ad Nauseam",
-    "Biorhythm",
-    "Drift of Phantasms",
-    "Farewell",
-    "Force of Will",
-    "Fierce Guardianship",
-    "Deadly Rollick",
-    "Deflecting Swat",
-    "Flawless Maneuver",
-    "Veil of Summer",
-    "Notion Thief",
-    "Narset, Parter of Veils",
-    "Rule of Law",
-    "Deafening Silence",
-    "Winter Orb",
-    "Static Orb",
-    "Stasis",
-    "Rising Waters",
   ].map((n) => n.toLowerCase()),
 );
+
+/** Two-card packages that typically win before ~turn 4–5 (floor Bracket 4). */
+const FAST_COMBO_PAIRS: ReadonlyArray<readonly [string, string]> = [
+  ["thassa's oracle", "demonic consultation"],
+  ["thassa's oracle", "tainted pact"],
+  ["underworld breach", "lion's eye diamond"],
+  ["underworld breach", "brain freeze"],
+  ["lion's eye diamond", "brain freeze"],
+  ["isochron scepter", "dramatic reversal"],
+  ["food chain", "temur sabertooth"],
+  ["nidax, blighted force", "food chain"],
+];
 
 const BASIC_LANDS = new Set(
   [
@@ -169,6 +173,10 @@ const BASIC_LANDS = new Set(
 
 function normalizeName(name: string): string {
   return name.toLowerCase().split(" // ")[0].trim();
+}
+
+function displayShort(name: string): string {
+  return name.split(" // ")[0];
 }
 
 function isLand(card: ScryfallCard): boolean {
@@ -249,43 +257,60 @@ function isTutor(card: ScryfallCard): boolean {
 }
 
 function isExtraTurn(card: ScryfallCard): boolean {
-  return /take an extra turn|extra turn/i.test(oracleText(card));
+  // Require the actual extra-turn effect — not loose "extra turn" mentions.
+  return /take an extra turn/i.test(oracleText(card));
 }
 
 function isMassLandDenial(card: ScryfallCard): boolean {
   const t = oracleText(card);
   const n = normalizeName(card.name);
+  // Stax like Winter Orb ("lands don't untap") is NOT treated as MLD — that was
+  // falsely pushing many decks to Bracket 4.
   return (
-    /destroy all lands|all lands.*destroy|exile all lands|each player sacrifices .{0,40}lands|lands don't untap/i.test(
+    /destroy all lands|exile all lands|each player sacrifices (all|each of their) lands/i.test(
       t,
     ) ||
-    /armageddon|ravages of war|cataclysm|obliterate|sunder|wildfire|burning of xinye|decree of annihilation|from the ashes|impending disaster|wake of destruction/i.test(
+    /armageddon|ravages of war|obliterate|sunder|wildfire|burning of xinye|decree of annihilation|from the ashes|impending disaster|wake of destruction/i.test(
       n,
     )
   );
 }
 
-function isComboPiece(card: ScryfallCard): boolean {
-  const n = normalizeName(card.name);
-  const known = [
-    "thassa's oracle",
-    "demonic consultation",
-    "tainted pact",
-    "underworld breach",
-    "lion's eye diamond",
-    "brain freeze",
-    "dockside extortionist",
-    "temur sabertooth",
-    "food chain",
-    "isochron scepter",
-    "dramatic reversal",
-    "dualcaster mage",
-    "nidax, blighted force",
-    "consultation",
-  ];
-  if (known.includes(n)) return true;
-  const t = oracleText(card);
-  return /you win the game|wins the game|infinite (mana|turns|combats)/i.test(t);
+function isFastComboPair(a: string, b: string): boolean {
+  const x = normalizeName(a);
+  const y = normalizeName(b);
+  return FAST_COMBO_PAIRS.some(
+    ([p, q]) => (p === x && q === y) || (p === y && q === x),
+  );
+}
+
+/** Find assembled two-card packages present in the deck (both halves). */
+function findAssembledCombos(deckKeys: Set<string>): {
+  labels: string[];
+  fastCount: number;
+  lateCount: number;
+} {
+  const labels: string[] = [];
+  let fastCount = 0;
+  let lateCount = 0;
+  const seen = new Set<string>();
+
+  for (const [a, b] of [...KNOWN_COMBO_PAIRS, ...FAST_COMBO_PAIRS]) {
+    if (!deckKeys.has(a) || !deckKeys.has(b)) continue;
+    const key = [a, b].sort().join("|");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const label = `${titleCaseName(a)} + ${titleCaseName(b)}`;
+    labels.push(label);
+    if (isFastComboPair(a, b)) fastCount += 1;
+    else lateCount += 1;
+  }
+
+  return { labels, fastCount, lateCount };
+}
+
+function titleCaseName(key: string): string {
+  return key.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /** CMC where cumulative nonland impact exceeds 65% (EDHPL tipping point). */
@@ -307,33 +332,44 @@ function computeTippingPoint(cards: CardImpact[]): number {
 }
 
 /**
- * WotC-style brackets from flags, with EDHPL power gates as a soft check.
- * Bracket 1–2: no game changers / MLD / early 2-card combos / chaining extra turns.
- * Bracket 3: up to 3 game changers; Bracket 4–5 unrestricted power.
+ * WotC / EDHPL-style brackets from barometers only.
+ * Power level is intentionally ignored — expensive/popular lists must not inflate bracket.
+ *
+ * Prefer under-bracketing soft signals: late/ambiguous combos and a few extra turns are
+ * noted but do not raise the floor. Hard floors stay on Game Changers, real MLD, and
+ * known fast two-card win packages.
+ *
+ * Baseline is Bracket 2 (Core).
  */
-function detectBracket(flags: BracketFlags, powerLevel: number): number {
+function detectBracket(
+  flags: BracketFlags,
+  comboFast: number,
+  _comboLate: number,
+): number {
   const gc = flags.gameChangers.length;
   const mld = flags.massLandDenial.length;
   const turns = flags.extraTurns.length;
-  const combos = flags.comboPieces.length;
-  const tutors = flags.tutors.length;
 
-  // Hard rule bumps
-  if (combos >= 2 && (gc >= 3 || tutors >= 5) && powerLevel >= FACTORS.bracketCurve[4]) {
-    return 5;
-  }
-  if (mld >= 1 || gc >= 4 || (combos >= 1 && gc >= 2) || powerLevel >= FACTORS.bracketCurve[3]) {
-    return 4;
-  }
-  if (gc >= 1 || turns >= 2 || combos >= 1 || tutors >= 3 || powerLevel >= FACTORS.bracketCurve[2]) {
-    // Bracket 3 allows up to 3 GCs
-    if (gc <= 3) return 3;
-    return 4;
-  }
-  if (tutors >= 1 || turns >= 1 || powerLevel >= FACTORS.bracketCurve[1]) {
-    return 2;
-  }
-  return 1;
+  let bracket = 2;
+
+  // Game Changers: 1–3 → B3 floor; 4+ → B4 floor (official hard rule)
+  if (gc >= 4) bracket = Math.max(bracket, 4);
+  else if (gc >= 1) bracket = Math.max(bracket, 3);
+
+  // True mass land denial → Optimized
+  if (mld >= 1) bracket = Math.max(bracket, 4);
+
+  // B2/B3 allow a few extra turns if not chained. Only a dense suite implies chaining.
+  if (turns >= 5) bracket = Math.max(bracket, 4);
+
+  // Only known fast two-card win packages raise bracket (→ Optimized).
+  // Late/blink-adjacent packages are flagged for discussion but do not auto-bump.
+  if (comboFast >= 1) bracket = Math.max(bracket, 4);
+
+  // cEDH: multiple fast win packages plus heavy Game Changer density
+  if (comboFast >= 2 && gc >= 4) bracket = 5;
+
+  return bracket;
 }
 
 export async function analyzeDeckPower(
@@ -370,6 +406,7 @@ export async function analyzeDeckPower(
     comboPieces: [],
   };
 
+  const deckKeys = new Set<string>();
   let unresolved = 0;
   for (const line of lines) {
     const key = normalizeName(line.name);
@@ -383,7 +420,7 @@ export async function analyzeDeckPower(
     const land = isLand(card) || isMdfcLand(card);
     const impact = cardImpactScore(card, line.quantity);
     impacts.push({
-      name: card.name.split(" // ")[0],
+      name: displayShort(card.name),
       quantity: line.quantity,
       impact,
       cmc: land ? 0 : (card.cmc ?? 0),
@@ -391,22 +428,26 @@ export async function analyzeDeckPower(
       isCommander,
     });
 
+    deckKeys.add(key);
+
+    // Commanders on the Game Changers list still count toward the GC cap.
+    const n = normalizeName(card.name);
+    const short = displayShort(card.name);
+    if (GAME_CHANGERS.has(n) && !flags.gameChangers.includes(short)) {
+      flags.gameChangers.push(short);
+    }
+
     if (!isCommander) {
-      const n = normalizeName(card.name);
-      const short = card.name.split(" // ")[0];
-      if (GAME_CHANGERS.has(n) && !flags.gameChangers.includes(short)) {
-        flags.gameChangers.push(short);
-      }
       if (isTutor(card) && !flags.tutors.includes(short)) flags.tutors.push(short);
       if (isExtraTurn(card) && !flags.extraTurns.includes(short)) flags.extraTurns.push(short);
       if (isMassLandDenial(card) && !flags.massLandDenial.includes(short)) {
         flags.massLandDenial.push(short);
       }
-      if (isComboPiece(card) && !flags.comboPieces.includes(short)) {
-        flags.comboPieces.push(short);
-      }
     }
   }
+
+  const assembled = findAssembledCombos(deckKeys);
+  flags.comboPieces = assembled.labels;
 
   if (unresolved) notes.push(`Skipped ${unresolved} unresolved card(s) in power analysis.`);
 
@@ -432,7 +473,7 @@ export async function analyzeDeckPower(
 
   const score = totalImpact * efficiencyMultiplier;
   const powerLevel = Math.round(curveLookup(score, FACTORS.powerCurve) * 100) / 100;
-  const bracket = detectBracket(flags, powerLevel);
+  const bracket = detectBracket(flags, assembled.fastCount, assembled.lateCount);
 
   notes.push(
     `Impact ${totalImpact.toFixed(1)} · Efficiency ${efficiency.toFixed(2)}/10 · Tipping point ${tippingPoint}.`,
@@ -440,6 +481,17 @@ export async function analyzeDeckPower(
   if (flags.gameChangers.length) {
     notes.push(`${flags.gameChangers.length} game changer(s) detected.`);
   }
+  if (assembled.labels.length) {
+    notes.push(`${assembled.labels.length} assembled two-card combo(s) detected.`);
+  }
+  if (assembled.lateCount > 0 && assembled.fastCount === 0) {
+    notes.push(
+      "Late/ambiguous combo packages noted but did not raise bracket (discuss intent).",
+    );
+  }
+  notes.push(
+    "Bracket floors: Game Changers, fast combos, true MLD, dense extra turns — not power score, tutors, or stax.",
+  );
 
   onProgress?.({ done: 3, total: 3, label: "Done" });
 

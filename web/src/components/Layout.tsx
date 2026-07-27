@@ -151,18 +151,19 @@ export function Layout() {
                     <a href="https://scryfall.com/" target="_blank" rel="noopener noreferrer">
                       Scryfall
                     </a>
-                    . Power level and bracket estimates follow the methodology popularized by{" "}
+                    . Power level estimates follow the impact / efficiency / tipping-point
+                    methodology popularized by{" "}
                     <a
                       href="https://edhpowerlevel.com/"
                       target="_blank"
                       rel="noopener noreferrer"
                     >
                       EDH Power Level
-                    </a>{" "}
-                    (impact, efficiency, tipping point); MagicGen is not affiliated with that
-                    project. Magic: The Gathering is a trademark of Wizards of the Coast. This site
-                    is unofficial Fan Content permitted under the Fan Content Policy (not affiliated
-                    with Wizards).
+                    </a>
+                    ; brackets follow Wizards’ Game Changers / combo / extra-turn / MLD barometers
+                    (not power score). MagicGen is not affiliated with that project. Magic: The
+                    Gathering is a trademark of Wizards of the Coast. This site is unofficial Fan
+                    Content permitted under the Fan Content Policy (not affiliated with Wizards).
                   </p>
                 </div>
                 <div>
