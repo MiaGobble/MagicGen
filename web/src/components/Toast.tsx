@@ -56,7 +56,8 @@ export type KofiToastTool =
   | "pack-wars"
   | "budget-deck"
   | "pool-decks"
-  | "format-convert";
+  | "format-convert"
+  | "deck-diff";
 
 function resolveOptions(toneOrOptions?: ToastTone | ToastOptions): Required<
   Pick<ToastOptions, "tone" | "durationMs">

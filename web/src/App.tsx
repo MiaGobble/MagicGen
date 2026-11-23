@@ -13,6 +13,7 @@ import { SleeveColorPage } from "./pages/SleeveColorPage";
 import { DiceColorPage } from "./pages/DiceColorPage";
 import { PackWarsPage } from "./pages/PackWarsPage";
 import { BudgetDeckPage } from "./pages/BudgetDeckPage";
+import { DeckDiffPage } from "./pages/DeckDiffPage";
 import { PoolDecksPage } from "./pages/PoolDecksPage";
 import { RootEntry } from "./pages/RootEntry";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="pimp" element={<DeckPimpingPage />} />
           <Route path="budget" element={<BudgetDeckPage />} />
           <Route path="convert" element={<FormatConvertPage />} />
+          <Route path="deck-diff" element={<DeckDiffPage />} />
           <Route path="pool-decks" element={<PoolDecksPage />} />
           <Route path="booster" element={<BoosterGenPage />} />
           <Route path="pack-wars" element={<PackWarsPage />} />

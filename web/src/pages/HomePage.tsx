@@ -29,6 +29,11 @@ const TOOLS = [
     blurb: "Convert between Moxfield, Archidekt, HXDEC, and plain text with loss warnings.",
   },
   {
+    to: "/deck-diff",
+    title: "Deck Diffs",
+    blurb: "Compare two lists and see cards added, removed, and quantity changes.",
+  },
+  {
     to: "/pool-decks",
     title: "Pool to decks",
     blurb: "Split a shared card pool into multiple Commander decks.",

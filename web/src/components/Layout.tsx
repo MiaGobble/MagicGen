@@ -9,6 +9,7 @@ const LINKS = [
   { to: "/pimp", label: "Deck pimping" },
   { to: "/budget", label: "Deck cost cutter" },
   { to: "/convert", label: "Format converter" },
+  { to: "/deck-diff", label: "Deck Diffs" },
   { to: "/pool-decks", label: "Pool to decks" },
   { to: "/booster", label: "Booster generator" },
   { to: "/pack-wars", label: "Pack Wars generator" },

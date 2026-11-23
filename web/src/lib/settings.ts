@@ -9,6 +9,7 @@ export type HomePageId =
   | "/pimp"
   | "/budget"
   | "/convert"
+  | "/deck-diff"
   | "/pool-decks"
   | "/booster"
   | "/pack-wars"
@@ -64,6 +65,7 @@ export const HOME_PAGE_OPTIONS: { id: HomePageId; label: string }[] = [
   { id: "/pimp", label: "Deck pimping" },
   { id: "/budget", label: "Deck cost cutter" },
   { id: "/convert", label: "Format converter" },
+  { id: "/deck-diff", label: "Deck Diffs" },
   { id: "/pool-decks", label: "Pool to decks" },
   { id: "/booster", label: "Booster generator" },
   { id: "/pack-wars", label: "Pack Wars generator" },
