@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { DeckActions } from "../components/DeckActions";
+import { FormatBadge } from "../components/FormatBadge";
 import { Seo } from "../components/Seo";
+import { useSettings } from "../components/SettingsProvider";
 import { maybeShowKofiSupportToast, useToast } from "../components/Toast";
 import {
   diffDeckLists,
@@ -7,14 +10,42 @@ import {
   isEmptyDiff,
   type DeckDiffResult,
 } from "../lib/deckDiff";
+import { serializeDeckListAsync } from "../lib/deckFormat";
+import { DECK_FORMAT_META, type DeckListFormat } from "../lib/settings";
+
+const FORMATS = Object.keys(DECK_FORMAT_META) as DeckListFormat[];
 
 export function DeckDiffPage() {
   const { toast } = useToast();
+  const { settings } = useSettings();
   const [before, setBefore] = useState("");
   const [after, setAfter] = useState("");
   const [diff, setDiff] = useState<DeckDiffResult | null>(null);
+  const [exportFormat, setExportFormat] = useState<DeckListFormat>(settings.deckFormat);
+  const [exportText, setExportText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setExportFormat(settings.deckFormat);
+  }, [settings.deckFormat]);
+
+  useEffect(() => {
+    if (!diff || diff.addedLines.length === 0) {
+      setExportText("");
+      return;
+    }
+    let cancelled = false;
+    void serializeDeckListAsync(diff.addedLines, {
+      format: exportFormat,
+      includeSet: true,
+    }).then((text) => {
+      if (!cancelled) setExportText(text);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [diff, exportFormat]);
 
   async function onCompare() {
     if (!before.trim() || !after.trim()) {
@@ -60,6 +91,16 @@ export function DeckDiffPage() {
     setError(null);
   }
 
+  async function onCopyExport() {
+    if (!exportText) return;
+    try {
+      await navigator.clipboard.writeText(exportText);
+      toast("Copied added cards", "success");
+    } catch {
+      toast("Could not copy", "error");
+    }
+  }
+
   return (
     <div className="tool-page container">
       <Seo
@@ -71,7 +112,8 @@ export function DeckDiffPage() {
         <h1>Deck Diffs</h1>
         <p>
           Paste a before list and an after list. MagicGen totals quantities by card name and shows
-          what changed — set codes and finishes are ignored.
+          what changed — set codes and finishes are ignored for the comparison, but kept on the
+          added-card export for printing.
         </p>
       </header>
 
@@ -126,6 +168,51 @@ export function DeckDiffPage() {
       {error && <p className="error">{error}</p>}
 
       {diff && <DiffResults diff={diff} />}
+
+      {diff && diff.addedLines.length > 0 && (
+        <section className="panel deck-diff-export" style={{ marginTop: "1rem" }}>
+          <h2 style={{ marginTop: 0, fontSize: "1.05rem" }}>Added cards (export)</h2>
+          <p className="muted" style={{ marginTop: 0 }}>
+            New names and quantity increases from the after list, with the same printings. Copy this
+            into Proxy tools when you want to print only what changed.
+          </p>
+          <div className="field" style={{ maxWidth: "16rem", marginBottom: "0.75rem" }}>
+            <label htmlFor="diff-export-format">Format</label>
+            <select
+              id="diff-export-format"
+              value={exportFormat}
+              onChange={(e) => setExportFormat(e.target.value as DeckListFormat)}
+            >
+              {FORMATS.map((id) => (
+                <option key={id} value={id}>
+                  {DECK_FORMAT_META[id].label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="diff-export-out">Output list</label>
+            <textarea
+              id="diff-export-out"
+              value={exportText}
+              readOnly
+              placeholder="Added cards appear here after Compare…"
+            />
+          </div>
+          <div className="actions convert-actions">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => void onCopyExport()}
+              disabled={!exportText}
+            >
+              Copy list
+            </button>
+            <FormatBadge format={exportFormat} compact />
+          </div>
+          {exportText && <DeckActions list={exportText} hidePimp />}
+        </section>
+      )}
     </div>
   );
 }

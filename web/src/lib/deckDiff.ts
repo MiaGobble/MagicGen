@@ -1,6 +1,6 @@
 /**
  * Compare two deck lists by card name + quantity.
- * Ignores set codes / finishes; aggregates quantities across sections.
+ * Diff summary ignores set codes / finishes; export lines keep after-list printings.
  */
 import { parseDeckListAsync, type DeckLine } from "./deckFormat";
 import { normalizeCardNameForSearch } from "./scryfall";
@@ -21,6 +21,8 @@ export type DeckDiffResult = {
   added: DiffQtyLine[];
   removed: DiffQtyLine[];
   changed: DiffChangedLine[];
+  /** New cards + quantity increases, with printings from the after list. */
+  addedLines: DeckLine[];
   unchanged: number;
   beforeCards: number;
   afterCards: number;
@@ -30,11 +32,15 @@ export type DeckDiffResult = {
 
 type QtyEntry = { name: string; quantity: number };
 
+function cardKey(name: string): string {
+  return normalizeCardNameForSearch(name).toLowerCase();
+}
+
 function aggregateByName(lines: DeckLine[]): Map<string, QtyEntry> {
   const map = new Map<string, QtyEntry>();
   for (const line of lines) {
     if (line.quantity <= 0) continue;
-    const key = normalizeCardNameForSearch(line.name).toLowerCase();
+    const key = cardKey(line.name);
     if (!key) continue;
     const existing = map.get(key);
     if (existing) {
@@ -51,6 +57,41 @@ function aggregateByName(lines: DeckLine[]): Map<string, QtyEntry> {
 
 function sortByName<T extends { name: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+}
+
+/**
+ * Cards that need printing / acquiring: wholly new names, plus positive qty deltas.
+ * Quantities and printings come from the after list.
+ */
+function extractAddedLines(before: DeckLine[], after: DeckLine[]): DeckLine[] {
+  const beforeMap = aggregateByName(before);
+  const afterByKey = new Map<string, DeckLine[]>();
+
+  for (const line of after) {
+    if (line.quantity <= 0) continue;
+    const key = cardKey(line.name);
+    if (!key) continue;
+    const group = afterByKey.get(key);
+    if (group) group.push(line);
+    else afterByKey.set(key, [line]);
+  }
+
+  const out: DeckLine[] = [];
+  for (const [key, lines] of afterByKey) {
+    const prev = beforeMap.get(key)?.quantity ?? 0;
+    const afterTotal = lines.reduce((s, l) => s + l.quantity, 0);
+    let need = afterTotal - prev;
+    if (need <= 0) continue;
+
+    for (const line of lines) {
+      if (need <= 0) break;
+      const take = Math.min(line.quantity, need);
+      out.push({ ...line, quantity: take });
+      need -= take;
+    }
+  }
+
+  return sortByName(out);
 }
 
 /** Pure compare of already-parsed lines. */
@@ -93,6 +134,7 @@ export function diffDeckLines(before: DeckLine[], after: DeckLine[]): DeckDiffRe
     added: sortByName(added),
     removed: sortByName(removed),
     changed: sortByName(changed),
+    addedLines: extractAddedLines(before, after),
     unchanged,
     beforeCards: sumQty(beforeMap),
     afterCards: sumQty(afterMap),
